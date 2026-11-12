@@ -1,0 +1,1 @@
+This generated two-color PNG is a technical upload test fixture, not a product photo. Do not use it to evaluate AI identification accuracy. The Jordan contract fixture in lib/identification.test.ts tests data handling only, not actual visual recognition.

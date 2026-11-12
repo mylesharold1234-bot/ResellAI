@@ -1,0 +1,166 @@
+{
+  "schemaVersion": 1,
+  "datasetId": "resellai-real-world-v1",
+  "kind": "real",
+  "labeledProducts": 0,
+  "capturedProducts": 0,
+  "meetsTarget": false,
+  "fieldSummary": [
+    {
+      "field": "brand",
+      "total": 0,
+      "correct": 0,
+      "incorrect": 0,
+      "missing": 0,
+      "accuracy": null
+    },
+    {
+      "field": "model",
+      "total": 0,
+      "correct": 0,
+      "incorrect": 0,
+      "missing": 0,
+      "accuracy": null
+    },
+    {
+      "field": "productName",
+      "total": 0,
+      "correct": 0,
+      "incorrect": 0,
+      "missing": 0,
+      "accuracy": null
+    },
+    {
+      "field": "category",
+      "total": 0,
+      "correct": 0,
+      "incorrect": 0,
+      "missing": 0,
+      "accuracy": null
+    },
+    {
+      "field": "colorway",
+      "total": 0,
+      "correct": 0,
+      "incorrect": 0,
+      "missing": 0,
+      "accuracy": null
+    },
+    {
+      "field": "visibleCondition",
+      "total": 0,
+      "correct": 0,
+      "incorrect": 0,
+      "missing": 0,
+      "accuracy": null
+    },
+    {
+      "field": "identifyingInformation",
+      "total": 0,
+      "correct": 0,
+      "incorrect": 0,
+      "missing": 0,
+      "accuracy": null
+    }
+  ],
+  "summary": [
+    {
+      "provider": "ebay",
+      "byCategory": [],
+      "recorded": 0,
+      "evaluated": 0,
+      "recommendations": 0,
+      "coverage": null,
+      "coverageAmongSuccessfulCaptures": null,
+      "matching": {
+        "tp": 0,
+        "fp": 0,
+        "unjudged": 0,
+        "recalled": 0,
+        "missed": 0,
+        "precision": null,
+        "recall": null,
+        "judgmentCoverage": null
+      },
+      "withinRetrieved": {
+        "tp": 0,
+        "fp": 0,
+        "unjudged": 0,
+        "recalled": 0,
+        "missed": 0,
+        "precision": null,
+        "recall": null,
+        "judgmentCoverage": null
+      },
+      "cohort": {
+        "tp": 0,
+        "fp": 0,
+        "unjudged": 0,
+        "recalled": 0,
+        "missed": 0,
+        "precision": null,
+        "recall": null,
+        "judgmentCoverage": null
+      },
+      "pricingError": {
+        "cases": 0,
+        "mae": null,
+        "mape": null,
+        "bias": null
+      },
+      "failures": {}
+    },
+    {
+      "provider": "mercari",
+      "byCategory": [],
+      "recorded": 0,
+      "evaluated": 0,
+      "recommendations": 0,
+      "coverage": null,
+      "coverageAmongSuccessfulCaptures": null,
+      "matching": {
+        "tp": 0,
+        "fp": 0,
+        "unjudged": 0,
+        "recalled": 0,
+        "missed": 0,
+        "precision": null,
+        "recall": null,
+        "judgmentCoverage": null
+      },
+      "withinRetrieved": {
+        "tp": 0,
+        "fp": 0,
+        "unjudged": 0,
+        "recalled": 0,
+        "missed": 0,
+        "precision": null,
+        "recall": null,
+        "judgmentCoverage": null
+      },
+      "cohort": {
+        "tp": 0,
+        "fp": 0,
+        "unjudged": 0,
+        "recalled": 0,
+        "missed": 0,
+        "precision": null,
+        "recall": null,
+        "judgmentCoverage": null
+      },
+      "pricingError": {
+        "cases": 0,
+        "mae": null,
+        "mape": null,
+        "bias": null
+      },
+      "failures": {}
+    }
+  ],
+  "cases": [],
+  "provenance": {
+    "labelsSha256": "111d75c35c31c97834c1804dc73a9bf81d82b8dc231d14dfaaba6e3b399de738",
+    "capturesSha256": "111d75c35c31c97834c1804dc73a9bf81d82b8dc231d14dfaaba6e3b399de738",
+    "engineSourcesSha256": "583de3a1a94f7e306c46a12cce4b79e8e9b8b1e314871fba2475f8f67cb9cbc9"
+  }
+}

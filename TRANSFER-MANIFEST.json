@@ -1,0 +1,688 @@
+{
+  "project": "ResellAI",
+  "prepared": "2026-11-11",
+  "excludes": [
+    ".env.local and other private env files",
+    "node_modules",
+    ".next",
+    ".git",
+    ".marketplace-snapshots",
+    "evaluation/private",
+    "logs",
+    "tsbuildinfo",
+    "zip archives"
+  ],
+  "secretCheck": "Included files checked against configured credential values; none matched.",
+  "files": [
+    {
+      "path": ".env.example",
+      "bytes": 1091,
+      "sha256": "b19bbf1ae0d5840e615a39b36ddee164e9ef16cfe34951e6ca98fe5ea1951c07"
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 102,
+      "sha256": "441ba9d8614525dcd289ee9e858c67a9012c62ac7a3cee8d0a704347a1bf01b6"
+    },
+    {
+      "path": "app/analysis/page.tsx",
+      "bytes": 305,
+      "sha256": "17cbf97a3fc4068b3193411894256ef1dd18285909075bd185f06b0a3ef16bd6"
+    },
+    {
+      "path": "app/analyze/page.tsx",
+      "bytes": 16862,
+      "sha256": "95373c603c93ba349da2a6db495f8601538294684760d2893de5705e10753317"
+    },
+    {
+      "path": "app/api/identify/route.ts",
+      "bytes": 723,
+      "sha256": "4ba464069c54a4d5ecc3ed39107f237ea9a71adb388ec937ec5c6f19d455425a"
+    },
+    {
+      "path": "app/api/marketplaces/ebay/review/route.ts",
+      "bytes": 2242,
+      "sha256": "813f7a29178a5a9832552000851ff842d0e20082ed54f6dbf5daa8ed0b9d07e9"
+    },
+    {
+      "path": "app/api/marketplaces/ebay/route.ts",
+      "bytes": 768,
+      "sha256": "06b1dbae539a848ed3a223fb58c0016446c34925858ad7ba6c9cd23ba772b445"
+    },
+    {
+      "path": "app/api/marketplaces/facebook/advice/route.ts",
+      "bytes": 2505,
+      "sha256": "e20e627b90653780a5d728676f88b3ed1785b06e49a799f20faeb9bd0062bbb8"
+    },
+    {
+      "path": "app/api/marketplaces/facebook/route.ts",
+      "bytes": 890,
+      "sha256": "e9ad873fda8664692ad33e9c00d937bb39e86a963bf99dc6d92e8c4c02b69f5f"
+    },
+    {
+      "path": "app/api/marketplaces/mercari/route.ts",
+      "bytes": 533,
+      "sha256": "8392475b9092ca1eeaa96def5fdcd68fe1d83b03719cde26acb418c04968e705"
+    },
+    {
+      "path": "app/dashboard/page.tsx",
+      "bytes": 2704,
+      "sha256": "7947266db5d471caaa7a9b8b74d57127cc86f347e41fe567517f55e7fd5678aa"
+    },
+    {
+      "path": "app/globals.css",
+      "bytes": 19404,
+      "sha256": "f64ee0eafbe038407e805fe360305d129c8d6936f3a5bcf2d7fc3f6355e1ec3b"
+    },
+    {
+      "path": "app/layout.tsx",
+      "bytes": 898,
+      "sha256": "707319db729d96278f5e6b3fe81609e8fa1ea136fe35a63d4194a40a83b048d6"
+    },
+    {
+      "path": "app/page.tsx",
+      "bytes": 4751,
+      "sha256": "fa3b3eb0d2bffa56ff6fb773ab95c4803a44a8af03075f0e4b02887f878a54ca"
+    },
+    {
+      "path": "CLAUDE-HANDOFF.md",
+      "bytes": 7315,
+      "sha256": "c1fc37b677a6625b511f85a4cbaa4f134b7772bd721b27f87b4d030a3ddee50a"
+    },
+    {
+      "path": "components/analytics.tsx",
+      "bytes": 3645,
+      "sha256": "61f7a1e9cdbc15094a4e467eef57c85096333f63cf3822ab9bcb0d779e18489b"
+    },
+    {
+      "path": "components/demo-report.tsx",
+      "bytes": 5732,
+      "sha256": "1995fe916dcb31dc75f01713c31afb450de834b4077f0cc37586beb48af3774d"
+    },
+    {
+      "path": "components/ebay-ai-review.tsx",
+      "bytes": 2904,
+      "sha256": "f56fdad6dc2e61d8703830b52920b241e3c0448794f71db89dca7e6d05b6049d"
+    },
+    {
+      "path": "components/ebay-proceeds.tsx",
+      "bytes": 4537,
+      "sha256": "9aec93e49bf3bb05efead56d14c1e91634cb34e69da1ad936362e4ca119076ac"
+    },
+    {
+      "path": "components/facebook-location-fields.tsx",
+      "bytes": 5444,
+      "sha256": "46044663b106d92f10703902404073e9dbaa4aea339bfe1cc87a5c736f4901c3"
+    },
+    {
+      "path": "components/facebook-marketplace-section.tsx",
+      "bytes": 12789,
+      "sha256": "701fbf7d5a19c26f7b4cc2d9801c926c036b43048c9a894f768eb8e1a0727d19"
+    },
+    {
+      "path": "components/identification-context.tsx",
+      "bytes": 1234,
+      "sha256": "7b0078257f5981cf93ad60c98f0acff148e626d6b3327d91dfb517c4917be09d"
+    },
+    {
+      "path": "components/identification-warning.tsx",
+      "bytes": 1045,
+      "sha256": "c22771c0a3b367cbf11206323b72470d5ecac9c083453834c86b8110d00015b9"
+    },
+    {
+      "path": "components/latest-item-card.tsx",
+      "bytes": 885,
+      "sha256": "a809c60ebd4e50afe0a14417af22ce0d19ccd6a7149b101e7a45b0e87af7d15c"
+    },
+    {
+      "path": "components/live-report.tsx",
+      "bytes": 20201,
+      "sha256": "7c1044917df97c14ffef38539a5368f8dcd5bebce672eb0195544d7b5ec3b41b"
+    },
+    {
+      "path": "components/marketplace-intelligence.tsx",
+      "bytes": 3449,
+      "sha256": "2e319d11f3d819eecb5cb13f9e0df2ee5b2dcb77e64972b6638cea9409cff554"
+    },
+    {
+      "path": "components/match-details-fields.tsx",
+      "bytes": 4031,
+      "sha256": "2f214faeac4f62876faa5bc8e1e2556d0c8c21918b029e0a848949ff13a7e8d6"
+    },
+    {
+      "path": "components/mercari-pricing.tsx",
+      "bytes": 5034,
+      "sha256": "53235558d6a945aab04330e4294e28cd39a3cf6619ffc1543a4767082db021ec"
+    },
+    {
+      "path": "components/pricing-panel.tsx",
+      "bytes": 5187,
+      "sha256": "3a9e74a78c2492ddc8e6ef6b0ed544031addc6291b5ea17f2a858650f8efadbc"
+    },
+    {
+      "path": "components/product-image.tsx",
+      "bytes": 512,
+      "sha256": "e8e02235b5b2f647d972bed790a4cd6f1735905ef9dcb2f356af827627f89712"
+    },
+    {
+      "path": "components/report-item.tsx",
+      "bytes": 2909,
+      "sha256": "aa1bbac1619f1424907b4acae84bc26ad82c36438e236e656bb8c499d02ce2c6"
+    },
+    {
+      "path": "components/request-loading.tsx",
+      "bytes": 1006,
+      "sha256": "a32be8d71a21a1f158ff6bec133eed6d0825e07fd3a0ff4f7c9ed630616ab0e3"
+    },
+    {
+      "path": "components/retrieval-diagnostics.tsx",
+      "bytes": 1737,
+      "sha256": "bfd6cc9b7c806c4f63f64091c886436063ceb55e2c496afc035e83d5f267a66d"
+    },
+    {
+      "path": "components/ui.tsx",
+      "bytes": 1252,
+      "sha256": "08faf675125748023c10ded8537f13a3c6d0e1de85933983bead796ef8e01c37"
+    },
+    {
+      "path": "components/use-request.ts",
+      "bytes": 1974,
+      "sha256": "9c4612a5820733031d231ab775298a070344cd05ab5f8d22e37a3781ae82e3d5"
+    },
+    {
+      "path": "docs/AUTONOMOUS-IMPROVEMENTS-V1.md",
+      "bytes": 5896,
+      "sha256": "d8d9f5f08c66a56b652d87c305505ce08538627cceeba175349d52e1c4e668d9"
+    },
+    {
+      "path": "docs/COMPARABLE-QUALITY.md",
+      "bytes": 2925,
+      "sha256": "d2bd596721bfe4aa5f803a31f950e5fabaa20c1f3f78688329ba27d99e825e82"
+    },
+    {
+      "path": "docs/DAILY-PRICING.md",
+      "bytes": 2184,
+      "sha256": "bf6383352a2f0a680f45a41119c6a782d62b478b374962391c8e3ac5de213124"
+    },
+    {
+      "path": "docs/DUNK-REFINEMENT-REGRESSION.md",
+      "bytes": 6277,
+      "sha256": "0f57a76d58b499c129965962d165b6ab0cfd11a8c5db0138fd3154ec488bd7be"
+    },
+    {
+      "path": "docs/EBAY-AUTH-DIAGNOSTICS.md",
+      "bytes": 5202,
+      "sha256": "c50ded076a72c9357c87fceb7174064aad8a2789d5fb6abb19f0c290214ffc7c"
+    },
+    {
+      "path": "docs/EBAY-COMPARABLE-DIAGNOSTICS.md",
+      "bytes": 3409,
+      "sha256": "b40f89c0bddd05085ff10bbbaf7d4f89ae3839807307cef33de64f8f6ad125e7"
+    },
+    {
+      "path": "docs/EBAY-INTEGRATION.md",
+      "bytes": 13153,
+      "sha256": "b5bd0574af5dc3518da9c4cad567f06066ee7cf1e069fdb51a89289f56dddb25"
+    },
+    {
+      "path": "docs/EBAY-PROGRESSIVE-SEARCH.md",
+      "bytes": 7789,
+      "sha256": "8a84a9160607a2b3a5575c2cd188254b9190dc0bfe1aa190b1df893977d1c766"
+    },
+    {
+      "path": "docs/INSTRUMENT-PRICING.md",
+      "bytes": 25678,
+      "sha256": "54fe4ed5476a39497c03679a766174f54814e5572091073d32bc3667e889431f"
+    },
+    {
+      "path": "docs/MATCHING-REGRESSION-VERIFICATION.md",
+      "bytes": 4954,
+      "sha256": "fd699799ed688b5837f067955d05833fca804230ccaf32b2d3a0ac9ad0e3b274"
+    },
+    {
+      "path": "docs/MERCARI-PRICING-AUDIT.md",
+      "bytes": 3397,
+      "sha256": "e5b75905f46c1d2443844d8d152c38e774bbedbad0884f5ad1ea90d4be1227af"
+    },
+    {
+      "path": "docs/MERCARI.md",
+      "bytes": 1677,
+      "sha256": "4551eb728abf7f4c9b65195cb6fd30fecd51df90f88955f8ba93999dd83a115c"
+    },
+    {
+      "path": "docs/PRICING-INTELLIGENCE-V1.md",
+      "bytes": 3585,
+      "sha256": "7b1bb858e3b4a1e4548c10308a58bb3deeae9af8de2da0707c4ce1c0e4c81060"
+    },
+    {
+      "path": "docs/REAL-WORLD-PILOT-V1.md",
+      "bytes": 6296,
+      "sha256": "7ca5d81cc9feea2abb6a88f4790a3d03a54589dd837c26b8a6d1b654ff353830"
+    },
+    {
+      "path": "docs/REAL-WORLD-VALIDATION-V1.md",
+      "bytes": 8786,
+      "sha256": "fb44aa7c254d8616c36735726c37dabe1847840b73b97867d963e53eedc07171"
+    },
+    {
+      "path": "docs/SEARCH-OPTIMIZATION-V1.md",
+      "bytes": 5799,
+      "sha256": "c88fafbc234c29a6947689a577a453d71a277fd8d8d1d48244dad712e89d9823"
+    },
+    {
+      "path": "docs/SOCIAL-FETCH-PERMISSION-REQUEST.md",
+      "bytes": 2769,
+      "sha256": "cc1ca5c98d1a747b1644d12a4b829d4ee3b30f425ecad3d6af0457d4e76c268a"
+    },
+    {
+      "path": "docs/SOCIAL-FETCH.md",
+      "bytes": 15759,
+      "sha256": "13dd1478a8a457a89745f78356e1d2797f3d63a787f564da379e1e36663cd454"
+    },
+    {
+      "path": "docs/TIERED-PRICING-EVIDENCE.md",
+      "bytes": 3892,
+      "sha256": "69e82505812703967e8790f773466c110f05af282abfe82aac01ebe9fe456f12"
+    },
+    {
+      "path": "docs/UNIVERSAL-SEARCH.md",
+      "bytes": 8802,
+      "sha256": "9b01cd3ede9e073c3b620b10679f2fec5ecbcc7da4b9d888f374fd23ecda4e14"
+    },
+    {
+      "path": "evaluation/baseline/report.json",
+      "bytes": 3513,
+      "sha256": "1c254a4d2f71c260041fc5b5c2a1738dc12648a85bfec9abfadc15275ba6ce45"
+    },
+    {
+      "path": "evaluation/baseline/report.md",
+      "bytes": 2048,
+      "sha256": "a024e3eb692512c1390f92611d7e908ceca5d041507b9e4a4a28f645807c5472"
+    },
+    {
+      "path": "evaluation/captures.template.json",
+      "bytes": 100,
+      "sha256": "111d75c35c31c97834c1804dc73a9bf81d82b8dc231d14dfaaba6e3b399de738"
+    },
+    {
+      "path": "evaluation/labels.template.json",
+      "bytes": 100,
+      "sha256": "111d75c35c31c97834c1804dc73a9bf81d82b8dc231d14dfaaba6e3b399de738"
+    },
+    {
+      "path": "HANDOFF-VERIFICATION.md",
+      "bytes": 2063,
+      "sha256": "fc38196489715b765fd83852f3976de65312995807fda9dd7c1cca2bb6ea9fc4"
+    },
+    {
+      "path": "lib/comparable-quality.ts",
+      "bytes": 1853,
+      "sha256": "fb8b8bb7a3d84c52a5df833acbfa740373f6db681c9ca17a85da30776353cad0"
+    },
+    {
+      "path": "lib/daily-snapshots.test.ts",
+      "bytes": 6306,
+      "sha256": "3caa09aa8db8bcdf746623e85e4d81854a12fa7548ee8beff5564866326826e8"
+    },
+    {
+      "path": "lib/daily-snapshots.ts",
+      "bytes": 5694,
+      "sha256": "ebcb8e89bea6663521955057cc19fdf42c784e389fd2cbcf6f76f35a1fe89d98"
+    },
+    {
+      "path": "lib/demo.ts",
+      "bytes": 744,
+      "sha256": "07ebf1d95a32d399ccf07a61ac575d1f94447c9d01cc0cd2464df9058dbdc939"
+    },
+    {
+      "path": "lib/ebay-ai-review.ts",
+      "bytes": 3558,
+      "sha256": "d84385f1fee575332e3b5095fc9c9b030f94851ecc57da2225b2798acb6c5f6c"
+    },
+    {
+      "path": "lib/ebay-evidence.ts",
+      "bytes": 906,
+      "sha256": "01c3167a55011e33c6a8ece9cc1395cea121d5d65f16bbd565579c394e7b9f16"
+    },
+    {
+      "path": "lib/ebay-fees.ts",
+      "bytes": 1018,
+      "sha256": "ab05654721f86e9dadd18e91c30c455330ef2d991a39becf343f6e1c706c0bd4"
+    },
+    {
+      "path": "lib/ebay-search.test.ts",
+      "bytes": 5701,
+      "sha256": "695241d9ed6e3d1df14efa9599d371cb38acc8b1d9b58e4afced25bbf2a444e1"
+    },
+    {
+      "path": "lib/ebay-search.ts",
+      "bytes": 16283,
+      "sha256": "e93546b4b8f1e2dc0ed41d7b81b7da725f952eb605d3724ddc168c58b5ae219a"
+    },
+    {
+      "path": "lib/facebook-advice.ts",
+      "bytes": 3281,
+      "sha256": "b2a6d33de3b8792c110d874c189726f615906ad5ec1a60a7783513818528c754"
+    },
+    {
+      "path": "lib/facebook-server.ts",
+      "bytes": 3112,
+      "sha256": "5525621645ca02bbbd3f02e2f45efe6fc524f3b4f23fa42a1c37f227b7cc0e04"
+    },
+    {
+      "path": "lib/facebook-valuation.ts",
+      "bytes": 1963,
+      "sha256": "7858bf270c162d0a947b3486d4b5e7aa978799f5d7b9ec971b46566a88e1e8d3"
+    },
+    {
+      "path": "lib/facebook.test.ts",
+      "bytes": 13153,
+      "sha256": "bd0fdb427d0c91ea80b7813f116c7b2e900c6460a6562e9252ba044267f57983"
+    },
+    {
+      "path": "lib/facebook.ts",
+      "bytes": 2528,
+      "sha256": "69d5a926c207bda9fcd2c5d43716eda96100e66b6c8bc8b5b78240813ea621f5"
+    },
+    {
+      "path": "lib/footwear-compatibility.test.ts",
+      "bytes": 7144,
+      "sha256": "4c3103669d1345b777a4a70b734fd1df50af827623ca4e3a3aec0da797c225e7"
+    },
+    {
+      "path": "lib/footwear-compatibility.ts",
+      "bytes": 3496,
+      "sha256": "ae35013ae59da4b073a6ee574252ea710f1a21a557eb5a0b88189417e30ff8e4"
+    },
+    {
+      "path": "lib/identification-workflow.ts",
+      "bytes": 4398,
+      "sha256": "9a30df50905829757bae31c44cf6daf7c45c25d35fa8dd9f0353eac662d0b365"
+    },
+    {
+      "path": "lib/identification.test.ts",
+      "bytes": 7987,
+      "sha256": "beb80d640b65f09a601af28464554180a4a3f37fe0b84bab3128839e139ecf66"
+    },
+    {
+      "path": "lib/identification.ts",
+      "bytes": 5864,
+      "sha256": "d6b42b80e8554e121dcf3cb071136ce52e21567177f47b81dceb6452289bfbf0"
+    },
+    {
+      "path": "lib/identify-server.ts",
+      "bytes": 7599,
+      "sha256": "a77bce4b41409b86bc7c35890447354d17bc6debc75d385133d49cd5a88f3e3e"
+    },
+    {
+      "path": "lib/images.test.ts",
+      "bytes": 1570,
+      "sha256": "4a412545fb400f698629d30f8b763d3094a80e08bbd89d979ad3317ec6cbe901"
+    },
+    {
+      "path": "lib/images.ts",
+      "bytes": 1709,
+      "sha256": "b0b00f534490d9b177ae96720453197b712ad36ee242c69c79a677ea5346604a"
+    },
+    {
+      "path": "lib/listing-primary-text.ts",
+      "bytes": 665,
+      "sha256": "fbe63981d914b161b8156793f0865c410e660eed242c6d87b138b9eeeee4d171"
+    },
+    {
+      "path": "lib/market-reference.test.ts",
+      "bytes": 4310,
+      "sha256": "50b49e5f3aa9d33b13d517e1858559abb88b2953df74cb9c717100db24171b32"
+    },
+    {
+      "path": "lib/market-reference.ts",
+      "bytes": 2145,
+      "sha256": "7d46b81758daafebab4b6dada48417696695b4b55ecab961aa148fd40d1a6c7a"
+    },
+    {
+      "path": "lib/marketplace-providers/ebay.ts",
+      "bytes": 18724,
+      "sha256": "750725e4b7989cb4c0f33c2d6aeaad6a54360c55692d2d92136e396fc3151bf1"
+    },
+    {
+      "path": "lib/marketplace-providers/mercari.ts",
+      "bytes": 10850,
+      "sha256": "b8884c8f236490acd37388aa112e998783c984aa7487a955d0c689a883a5b22f"
+    },
+    {
+      "path": "lib/marketplace-providers/social-fetch.ts",
+      "bytes": 12381,
+      "sha256": "b598585f8c9178d31ed8b25d92bd0e6f86cfed8b87060a344c44d072f2ecd45b"
+    },
+    {
+      "path": "lib/marketplace-server.ts",
+      "bytes": 3001,
+      "sha256": "a29044f4103b010ab2f769581e0fe38f9878d8e3ce00899f2403be7bb3abc00d"
+    },
+    {
+      "path": "lib/marketplace.test.ts",
+      "bytes": 23443,
+      "sha256": "660b83d33d830b8c2dbba26adb71b24e41c5978d870d96877244869fc23a5704"
+    },
+    {
+      "path": "lib/marketplaces.ts",
+      "bytes": 4821,
+      "sha256": "43c090f241f02fdf28b99375929ef90be23a37f6f2986d155ff6f76aea519895"
+    },
+    {
+      "path": "lib/mercari-matching.ts",
+      "bytes": 2378,
+      "sha256": "f447755096c1e0502fde1f6cf17805477ee0200ad80b4f3e762ba6525eb22fa6"
+    },
+    {
+      "path": "lib/mercari.test.ts",
+      "bytes": 6118,
+      "sha256": "caef8390a15fdc5301addad12ec871dc904684bab0472c327b174e0fbe4c7772"
+    },
+    {
+      "path": "lib/pricing-engine.test.ts",
+      "bytes": 14206,
+      "sha256": "bb384b14bc7c4cbdadd6924b78019156f528bdd309b3ca564123e63011e03d9b"
+    },
+    {
+      "path": "lib/pricing-engine.ts",
+      "bytes": 14701,
+      "sha256": "3626d4b280cb270d745a9e570ccc8c5dcfb398c4cc62b7a962583c0b96e205cb"
+    },
+    {
+      "path": "lib/pricing-intelligence.test.ts",
+      "bytes": 4365,
+      "sha256": "000fb6a91754ffd5c5c494455e40c9155a13ed25006b4717df886c0be809ef57"
+    },
+    {
+      "path": "lib/pricing-intelligence.ts",
+      "bytes": 3427,
+      "sha256": "9aee9d6c7cb690f023a5ceecc2e37e9ca1508130e4001c66b7af1f08749ddc13"
+    },
+    {
+      "path": "lib/primary-product.ts",
+      "bytes": 4035,
+      "sha256": "1bf9cc3d016d01f0ccfc4f71e2bc828c3b4697ef12440e269db1dc47fdaa06d2"
+    },
+    {
+      "path": "lib/product-image.test.ts",
+      "bytes": 3464,
+      "sha256": "f2f83e24c634fd98f61f7aa3ea6fdf35f49b5f791d7a1ef00bd8ff16b7c12736"
+    },
+    {
+      "path": "lib/product-matching.ts",
+      "bytes": 9096,
+      "sha256": "ccd07cd66cf60be3cdf793bd31cc48f72a2329bf69e009b937b409f1e9a664e9"
+    },
+    {
+      "path": "lib/product-profile.ts",
+      "bytes": 5538,
+      "sha256": "3caa1ee3b379915b08fe1a19bbdb1224bb98c7fc937dd602a212bbafdb0dbe58"
+    },
+    {
+      "path": "lib/product-refinement.test.ts",
+      "bytes": 4771,
+      "sha256": "c95d443300add0ef9475ec6d4e066855b8974c125f44cc3b206cbe2c86c39c46"
+    },
+    {
+      "path": "lib/product-understanding.ts",
+      "bytes": 3601,
+      "sha256": "37d8e166c6861f89d301f57b93a2746f876543ed1c9917a536fa3236548f4747"
+    },
+    {
+      "path": "lib/profit.test.ts",
+      "bytes": 561,
+      "sha256": "832139b85d627719e3e679e3a4d132164af468a5b36f831fc6ce3552e2094f18"
+    },
+    {
+      "path": "lib/profit.ts",
+      "bytes": 587,
+      "sha256": "53611d8cafd551742ccf41d1b7e22f80046e3bcf6baf8eaf4c1dad975d828833"
+    },
+    {
+      "path": "lib/quality-benchmark.test.ts",
+      "bytes": 3821,
+      "sha256": "d55fd897b0abbdfdf8a325a4350bbc1d9edcdf149d8eba15a2dd9149ba4ac62e"
+    },
+    {
+      "path": "lib/real-world-pilot.test.ts",
+      "bytes": 4791,
+      "sha256": "2fcd86606099eb01e2db6e4bec966055bbd52797910ab915774a1d8183f630ef"
+    },
+    {
+      "path": "lib/real-world-pilot.ts",
+      "bytes": 8934,
+      "sha256": "1f397b623737b8628fd53ed757880211dd414de65b012db4e1c3c98b1c0b1104"
+    },
+    {
+      "path": "lib/real-world-validation.test.ts",
+      "bytes": 4571,
+      "sha256": "eec76de815454dcc306f40e58af73aa16eeb7340a20eee36890840ec33578054"
+    },
+    {
+      "path": "lib/real-world-validation.ts",
+      "bytes": 15319,
+      "sha256": "47fa732592ae376ae1ecfd8c3a9dfa1599b6ca270746680574ae5f4c43ddacd8"
+    },
+    {
+      "path": "lib/retrieval-diagnostics.ts",
+      "bytes": 1344,
+      "sha256": "87d9dd5fd29dafc0ac33098aa7ed9e5ec2664147e183d43b5c26f0a345a6acaa"
+    },
+    {
+      "path": "lib/search-retrieval.test.ts",
+      "bytes": 6459,
+      "sha256": "3c2dc5feec3b097f25052f6d37bc16548c79a410b321bbc9f14c2f7af06bcbbc"
+    },
+    {
+      "path": "lib/social-fetch-service.ts",
+      "bytes": 424,
+      "sha256": "1bc75ef82b130b81841f582df274ee60bcf210ebc9319ac592b0d7c7384e47be"
+    },
+    {
+      "path": "lib/universal-search.test.ts",
+      "bytes": 6347,
+      "sha256": "0dfbb45dfd130efc09d0196fc83fa5b7047c11d9cc741cc154ced1bb9d1cefb3"
+    },
+    {
+      "path": "lib/valuation.ts",
+      "bytes": 1474,
+      "sha256": "a3d1fef344f42b678d34423fd488edbea9277282f35ac16f3e7a780b060db214"
+    },
+    {
+      "path": "next-env.d.ts",
+      "bytes": 253,
+      "sha256": "4e4da12aa061aac172fb1bcb48e9b6e4b293080d2f494327925fdba8f39632ac"
+    },
+    {
+      "path": "next.config.ts",
+      "bytes": 94,
+      "sha256": "06be79247af6b1b2a2306219b25e7ca338c7e9c8091de007019e3df12ccdce1b"
+    },
+    {
+      "path": "package-lock.json",
+      "bytes": 89403,
+      "sha256": "b085fd5fa6f0a4ee32e8e363b7a5e9be3af512b22bbff206b7eb574534f0d0c9"
+    },
+    {
+      "path": "package.json",
+      "bytes": 635,
+      "sha256": "a0b6f218cff039c4f495e0328166864a9b99840486b76fb8e10dcb3301c80a97"
+    },
+    {
+      "path": "postcss.config.mjs",
+      "bytes": 60,
+      "sha256": "f50058e0d309cdb3e7c25a1123337338641fb71e988572607d57f47209db1fd1"
+    },
+    {
+      "path": "README.md",
+      "bytes": 8014,
+      "sha256": "fb7a106b82d8884552c805f487c93a680cd50e26294c19822f016cca1b7d5ee9"
+    },
+    {
+      "path": "scripts/diagnose-ebay-auth.mjs",
+      "bytes": 4093,
+      "sha256": "fcf6f99afa988872df18959a2ea8e34b0b3689658516afe9e1c29e7085557de0"
+    },
+    {
+      "path": "scripts/diagnose-ebay-comparables.ts",
+      "bytes": 1845,
+      "sha256": "a892e2c46e3486dfff1ddcfe08452a3a280a85fb81b32f1a1f65f9c35d090097"
+    },
+    {
+      "path": "scripts/real-world-pilot.ts",
+      "bytes": 10049,
+      "sha256": "9c6beb170a44d55401cb90abbc7105ed9e2554e93c1e61b63f0c6e913975c528"
+    },
+    {
+      "path": "scripts/replay-dunk-refinement.ts",
+      "bytes": 3266,
+      "sha256": "cab1dded0c099bdc836aad25153d4cdbaee51715a0cf79ab108152a7fd0e0a82"
+    },
+    {
+      "path": "scripts/replay-retained-jordan.ts",
+      "bytes": 3411,
+      "sha256": "f63cee79ff40642f69852703f3b7453629232d28fa7acc8dc1b7c28e43fdbfd8"
+    },
+    {
+      "path": "scripts/test-ebay-route.ts",
+      "bytes": 2123,
+      "sha256": "10f6f905609daa259fe924fa814bfeeb593d7cbd009eeee25232dc7001feed9d"
+    },
+    {
+      "path": "scripts/test-loading-ui.cjs",
+      "bytes": 8205,
+      "sha256": "0781ce77d25937d0a85d711b50abc567df0031de28e3439d2665af1d3285727e"
+    },
+    {
+      "path": "scripts/test-pricing-route.ts",
+      "bytes": 3102,
+      "sha256": "18e99142d49725333800cc6fc1f83992ec7417f21d41d4ae5556f1178ab55e4d"
+    },
+    {
+      "path": "scripts/test-universal-route.ts",
+      "bytes": 2805,
+      "sha256": "dd411f997625e841c0aa8288440e0313ba4ed110dcb7f0f90e60d1724c667c5b"
+    },
+    {
+      "path": "scripts/validate-real-world.ts",
+      "bytes": 5209,
+      "sha256": "21e637ca1e22c532d41aac232e8e0487ae117e9bf2c287114179af2c45699337"
+    },
+    {
+      "path": "tests/fixtures/README.md",
+      "bytes": 256,
+      "sha256": "dd75b2ac3d289c693544ebc1734c648915ac37e9d857f21da7098581100d0337"
+    },
+    {
+      "path": "tests/fixtures/upload-check.png",
+      "bytes": 293,
+      "sha256": "0ec1dcf143f4fa2d367ed27595a8f80217aebf7b891d9241809b33762df62a01"
+    },
+    {
+      "path": "tsconfig.json",
+      "bytes": 685,
+      "sha256": "ac6c07305ced8e928007bae3b643efa908b913f259813fe47052b984f717e98f"
+    }
+  ]
+}
