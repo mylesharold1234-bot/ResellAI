@@ -18,6 +18,7 @@ import { useRequest } from "./use-request";
 import { MarketplaceComparison, MarketplaceProfit } from "./marketplace-intelligence";
 import type {PricingEvidence} from "../lib/pricing-intelligence";
 import { MercariPricing } from "./mercari-pricing";
+import { CreateListingButton } from "./listing/create-listing-button";
 type ReportData = {
   result: MarketplaceResult;
   recommendation: ReturnType<typeof recommend>;
@@ -148,6 +149,7 @@ export function LiveReport() {
         {mercariQuery&&<MercariPricing query={mercariQuery} now={clock} confirmationId={state.confirmationId} onEvidence={onMercariEvidence} />}
       </div>
       <MarketplaceComparison ebay={searchIdentification===state.confirmed?data:null} mercari={mercariEvidence} now={clock} />
+      <CreateListingButton ebay={searchIdentification===state.confirmed?data:null} mercari={mercariEvidence} />
       <EbayAIReview result={result} />
       <section className="panel block">
         <h2>Refine your comparables</h2>

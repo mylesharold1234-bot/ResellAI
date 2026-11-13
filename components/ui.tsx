@@ -3,6 +3,7 @@ import {
   ArrowUpRight,
   ScanLine,
   LayoutDashboard,
+  FilePenLine,
   ArrowRight,
   ShieldCheck,
 } from "lucide-react";
@@ -23,6 +24,9 @@ export function Header() {
       <nav aria-label="Main navigation">
         <Link href="/dashboard">
           <LayoutDashboard size={16} /> Dashboard
+        </Link>
+        <Link href="/listings">
+          <FilePenLine size={16} /> Listings
         </Link>
         <Link className="button small" href="/analyze">
           Analyze an Item <ArrowUpRight size={16} />

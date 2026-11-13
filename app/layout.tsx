@@ -2,6 +2,7 @@ import { IdentificationProvider } from "../components/identification-context";
 import type { Metadata } from "next";
 import { Header } from "../components/ui";
 import "./globals.css";
+import "./listing.css";
 export const metadata: Metadata = {
   title: "ResellAI — Find the value in what you own",
   description:

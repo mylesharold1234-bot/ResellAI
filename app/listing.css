@@ -1,0 +1,94 @@
+/* Listing generator styles. Builds on the existing tokens in globals.css. */
+@media (max-width: 700px) {
+  .header nav > a:nth-child(2) { font-size: 0; gap: 0; min-width: 20px }
+  .header nav > a:nth-child(2) svg { width: 20px; height: 20px }
+}
+.create-listing-panel { display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; border-color: #c9d6ff; background: linear-gradient(180deg, #f7f9ff, #fff) }
+.create-listing-panel h2 { margin-top: 12px }
+.create-listing-panel .muted { margin: 8px 0 0 }
+@media (max-width: 700px) { .create-listing-panel { display: grid; grid-template-columns: 1fr } .create-listing-panel .button { width: 100% } }
+
+.listing-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 23px; align-items: start }
+.listing-main { display: grid; gap: 23px; min-width: 0 }
+.listing-aside { position: sticky; top: 16px; display: grid; gap: 16px }
+@media (max-width: 980px) { .listing-layout { grid-template-columns: 1fr } .listing-aside { position: static; order: -1 } }
+
+.listing-panel { border: 1px solid var(--line); border-radius: 13px; padding: 24px; background: #fff; min-width: 0; scroll-margin-top: 16px }
+.listing-panel > h2 { font-size: 21px; letter-spacing: -.5px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap }
+.listing-panel .panel-sub { color: var(--muted); font-size: 12.5px; line-height: 1.6; margin: 6px 0 16px }
+.listing-field { display: grid; gap: 7px; font-size: 12px; color: var(--muted); margin-top: 14px }
+.listing-field input, .listing-field textarea, .listing-field select, .listing-input {
+  width: 100%; border: 1px solid #d8dfec; border-radius: 8px; padding: 11px 12px; font: inherit; font-size: 14px; color: var(--navy); background: #fff
+}
+.listing-field textarea { resize: vertical; line-height: 1.6 }
+.field-meta { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 11px }
+.field-meta .over { color: #ac3340; font-weight: 700 }
+.mini-button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: #fff; color: var(--navy); border-radius: 7px; padding: 7px 10px; font-size: 12px; font-weight: 600 }
+.mini-button:hover:not(:disabled) { border-color: #b9c6e8; background: var(--soft) }
+.mini-button:disabled { opacity: .5; cursor: not-allowed }
+.mini-button.primary { background: var(--blue); border-color: var(--blue); color: #fff }
+
+.badge { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 700; letter-spacing: .4px; border-radius: 999px; padding: 4px 9px; white-space: nowrap; text-transform: uppercase }
+.badge.confirmed { background: #e7f6ee; color: #1d7a4a }
+.badge.identified { background: #eef2ff; color: #3653c4 }
+.badge.inferred { background: #fff4e0; color: #9a5b00 }
+.badge.missing { background: #fdecee; color: #ac3340 }
+.badge.neutral { background: var(--soft); color: var(--muted) }
+
+.spec-rows { display: grid; gap: 4px }
+.spec-row { display: grid; grid-template-columns: 170px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); scroll-margin-top: 16px }
+.spec-row:last-child { border-bottom: 0 }
+.spec-row label { font-size: 13px; font-weight: 600 }
+.spec-row label small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; line-height: 1.4; margin-top: 2px }
+.spec-row .spec-actions { display: flex; gap: 6px; align-items: center; justify-content: flex-end; flex-wrap: wrap }
+.req { color: #ac3340 }
+@media (max-width: 700px) { .spec-row { grid-template-columns: 1fr } .spec-row .spec-actions { justify-content: flex-start } }
+
+.checklist { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 8px; font-size: 12.5px; line-height: 1.5 }
+.checklist li { display: grid; grid-template-columns: 18px 1fr; gap: 8px; align-items: start }
+.checklist a { color: var(--navy); text-decoration: underline; text-decoration-color: #c5cee0 }
+.checklist .warn { color: #9a5b00 }
+.checklist .block-icon { color: #ac3340 }
+.ready-banner { display: flex; gap: 10px; align-items: center; background: #e7f6ee; color: #1d7a4a; border-radius: 9px; padding: 12px 14px; font-size: 13px; font-weight: 600 }
+.save-state { font-size: 11px; color: var(--muted) }
+
+.photo-select { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px }
+.photo-card { border: 2px solid var(--line); border-radius: 10px; padding: 8px; display: grid; gap: 8px; background: #fff }
+.photo-card.selected { border-color: var(--blue) }
+.photo-card img { width: 100%; height: 130px; object-fit: contain; background: var(--soft); border-radius: 6px }
+.photo-card .row { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 11px }
+
+.evidence-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px }
+.evidence-card { border: 1px solid var(--line); border-radius: 10px; padding: 16px; background: var(--soft); font-size: 12.5px; line-height: 1.55 }
+.evidence-card strong.big { font-size: 24px; display: block; margin: 6px 0 }
+.price-options { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px }
+.price-options button[aria-pressed="true"] { border-color: var(--blue); background: #eef2ff }
+.money-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px }
+@media (max-width: 700px) { .money-grid { grid-template-columns: 1fr 1fr } }
+.proceeds { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 18px; padding: 16px; background: var(--soft); border-radius: 9px }
+.proceeds span { display: block; font-size: 10.5px; color: var(--muted) }
+.proceeds strong { display: block; font-size: 20px; margin-top: 4px }
+@media (max-width: 700px) { .proceeds { grid-template-columns: 1fr 1fr } }
+.tip { background: #eef2ff; color: #2b3f8f; border-radius: 9px; padding: 12px 14px; font-size: 12.5px; margin-top: 12px; line-height: 1.6 }
+.warn-box { background: #fff4e0; color: #7a4a00; border-radius: 9px; padding: 12px 14px; font-size: 12.5px; margin-top: 12px; line-height: 1.6 }
+.warn-box ul, .tip ul { margin: 6px 0 0; padding-left: 18px }
+
+.marketplace-tabs { display: flex; gap: 6px; flex-wrap: wrap }
+.marketplace-tabs button { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 8px 13px; font-size: 12px; font-weight: 600; color: var(--navy) }
+.marketplace-tabs button[aria-pressed="true"] { background: var(--navy); color: #fff; border-color: var(--navy) }
+.check-row { display: flex; gap: 9px; align-items: flex-start; font-size: 13px; margin-top: 14px; line-height: 1.5 }
+.check-row input { width: 17px; height: 17px; margin-top: 2px; flex-shrink: 0 }
+.export-box { white-space: pre-wrap; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; background: var(--soft); border: 1px solid var(--line); border-radius: 8px; padding: 14px; max-height: 280px; overflow: auto; margin-top: 12px }
+.draft-list { display: grid; gap: 14px }
+.draft-item { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; gap: 16px; align-items: center; border: 1px solid var(--line); border-radius: 12px; padding: 14px; background: #fff }
+.draft-item img, .draft-item .thumb { width: 72px; height: 72px; object-fit: contain; border-radius: 8px; background: var(--soft) }
+.draft-item h3 { font-size: 16px; overflow-wrap: anywhere }
+.draft-item .actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end }
+@media (max-width: 700px) { .draft-item { grid-template-columns: 56px minmax(0, 1fr) } .draft-item img, .draft-item .thumb { width: 56px; height: 56px } .draft-item .actions { grid-column: 1 / -1; justify-content: flex-start } }
+.dialog-backdrop { position: fixed; inset: 0; background: rgba(20, 35, 62, .45); display: grid; place-items: center; padding: 16px; z-index: 50 }
+.dialog { background: #fff; border-radius: 14px; padding: 24px; max-width: 520px; width: 100%; max-height: 90vh; overflow: auto; box-shadow: 0 20px 60px rgba(0, 0, 0, .25) }
+.dialog h2 { font-size: 21px }
+.dialog dl { display: grid; grid-template-columns: 120px 1fr; gap: 6px 12px; font-size: 13px; margin: 16px 0 }
+.dialog dt { color: var(--muted) }
+.dialog dd { margin: 0; overflow-wrap: anywhere }
+.dialog .actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 18px }

@@ -7,3 +7,5 @@ node_modules/
 .marketplace-snapshots/
 
 evaluation/private/
+
+.seller-data/
