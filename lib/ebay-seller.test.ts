@@ -15,6 +15,7 @@ import { authorizeUrl, exchangeCode } from "./ebay-seller/oauth";
 import { createSellerStore, decrypt, encrypt } from "./ebay-seller/store";
 import { buildAspects, buildInventoryItem, buildOffer, ebayCondition, ebayPublishIssues, skuForDraft, descriptionHtml } from "./ebay-seller/payload";
 import { createSellerHandlers, SESSION_COOKIE, STATE_COOKIE } from "./ebay-seller/handlers";
+import { fakeEbay } from "./test-support/fake-ebay";
 
 // All eBay responses below are simulated. No live eBay API is contacted by these tests.
 const key = randomBytes(32);
@@ -51,49 +52,6 @@ function readyDraft(): ListingDraft {
     shipping: { weightLb: "3", weightOz: "4", length: "14", width: "10", height: "5", service: "", handlingDays: "1", whoPays: "buyer", confirmed: true },
     ebay: { ...d.ebay, categoryId: "15709", imageUrls: ["https://i.example.com/a.jpg"], fulfillmentPolicyId: "F1", paymentPolicyId: "P1", returnPolicyId: "R1", merchantLocationKey: "home" },
   };
-}
-
-/** A fake eBay Sell API that records calls and can be told to fail a step. */
-function fakeEbay(options: { failPublishOnce?: boolean; existingPublished?: boolean } = {}) {
-  const calls: { method: string; path: string; body?: unknown; auth?: string }[] = [];
-  let offers: { offerId: string; status: string; listing?: { listingId: string } }[] = options.existingPublished ? [{ offerId: "O-1", status: "PUBLISHED", listing: { listingId: "L-1" } }] : [];
-  let failPublish = !!options.failPublishOnce;
-  const fetcher = (async (url: string | URL, init?: RequestInit) => {
-    const u = new URL(String(url));
-    const method = init?.method || "GET";
-    const body = init?.body && typeof init.body === "string" && init.body.startsWith("{") ? JSON.parse(init.body) : init?.body;
-    calls.push({ method, path: u.pathname + u.search, body, auth: (init?.headers as Record<string, string>)?.Authorization });
-    if (u.pathname === "/identity/v1/oauth2/token") {
-      const p = new URLSearchParams(String(init?.body));
-      if (p.get("grant_type") === "authorization_code" && p.get("code") === "good-code")
-        return Response.json({ access_token: "user-access", expires_in: 7200, refresh_token: "user-refresh", refresh_token_expires_in: 47304000, token_type: "User Access Token" });
-      if (p.get("grant_type") === "refresh_token") return Response.json({ access_token: "user-access-2", expires_in: 7200 });
-      return Response.json({ error: "invalid_grant" }, { status: 400 });
-    }
-    if (u.pathname.startsWith("/sell/inventory/v1/inventory_item/")) return new Response(null, { status: 204 });
-    if (u.pathname === "/sell/inventory/v1/offer" && method === "GET") return offers.length ? Response.json({ offers }) : Response.json({ errors: [{ errorId: 25713, message: "This Offer is not available." }] }, { status: 404 });
-    if (u.pathname === "/sell/inventory/v1/offer" && method === "POST") {
-      offers = [{ offerId: "O-9", status: "UNPUBLISHED" }];
-      return Response.json({ offerId: "O-9" }, { status: 201 });
-    }
-    if (/^\/sell\/inventory\/v1\/offer\/[^/]+$/.test(u.pathname) && method === "PUT") return new Response(null, { status: 204 });
-    if (u.pathname.endsWith("/publish")) {
-      if (failPublish) {
-        failPublish = false;
-        return Response.json({ errors: [{ errorId: 25002, message: "A user error has occurred.", longMessage: "Item specific Brand is missing." }] }, { status: 400 });
-      }
-      offers = offers.map((o) => ({ ...o, status: "PUBLISHED", listing: { listingId: "L-77" } }));
-      return Response.json({ listingId: "L-77" });
-    }
-    if (u.pathname.startsWith("/sell/account/v1/fulfillment_policy")) return Response.json({ fulfillmentPolicies: [{ fulfillmentPolicyId: "F1", name: "Ground" }] });
-    if (u.pathname.startsWith("/sell/account/v1/payment_policy")) return Response.json({ paymentPolicies: [{ paymentPolicyId: "P1", name: "Managed" }] });
-    if (u.pathname.startsWith("/sell/account/v1/return_policy")) return Response.json({ returnPolicies: [{ returnPolicyId: "R1", name: "30 days" }] });
-    if (u.pathname === "/sell/inventory/v1/location") return Response.json({ locations: [{ merchantLocationKey: "home", name: "Home" }] });
-    if (u.pathname.endsWith("/get_item_aspects_for_category"))
-      return Response.json({ aspects: [{ localizedAspectName: "Brand", aspectConstraint: { aspectRequired: true } }, { localizedAspectName: "Style", aspectConstraint: { aspectRequired: true } }, { localizedAspectName: "Width", aspectConstraint: { aspectRequired: false } }] });
-    return Response.json({ errors: [{ message: "unexpected " + u.pathname }] }, { status: 500 });
-  }) as unknown as typeof fetch;
-  return { fetcher, calls };
 }
 
 const session = "a".repeat(64);
@@ -192,11 +150,13 @@ test("payloads map condition, aspects, package and offer fields from confirmed d
   assert.ok(offer.sku.length <= 50);
   assert.deepEqual(offer.pricingSummary, { price: { value: "85.00", currency: "USD" } });
   assert.equal(offer.marketplaceId, "EBAY_US");
-  assert.equal(descriptionHtml("a <b>\n\nc"), "<p>a &lt;b&gt;</p><p>c</p>");
+  assert.equal(descriptionHtml("a <b>\n\nc\nd"), "a &lt;b&gt;<br><br>c<br>d", "only <br>, which is on eBay's allowed-tag list");
   assert.deepEqual(ebayPublishIssues(d, assessListing(d, "ebay")), []);
-  const missing = ebayPublishIssues({ ...d, ebay: { ...d.ebay, imageUrls: ["http://x"], categoryId: "" } }, assessListing(d, "ebay"), ["Brand", "Style"]);
+  const rules = { aspects: [{ name: "Brand", required: true, recommended: true, mode: "FREE_TEXT", values: [], multiple: false, maxLength: null }, { name: "Style", required: true, recommended: true, mode: "FREE_TEXT", values: [], multiple: false, maxLength: null }] };
+  const missing = ebayPublishIssues({ ...d, ebay: { ...d.ebay, imageUrls: ["http://x"], categoryId: "" } }, assessListing(d, "ebay"), rules);
   assert.ok(missing.some((x) => /category/.test(x)));
   assert.ok(missing.some((x) => /https/.test(x)));
+  assert.ok(!missing.some((x) => /Brand,/.test(x)), "Brand is filled from the listing");
   assert.ok(missing.some((x) => /Style/.test(x)));
 });
 
@@ -269,6 +229,8 @@ test("setup returns policies, locations and required aspects without exposing to
   const setup = await (await handlers.setup(req())).json();
   assert.equal(setup.policies.fulfillment[0].id, "F1");
   assert.equal(setup.locations[0].key, "home");
-  assert.deepEqual((await (await handlers.setup(req("?categoryId=15709"))).json()).requiredAspects, ["Brand", "Style"]);
+  const rules = await (await handlers.setup(req("?categoryId=15709"))).json();
+  assert.deepEqual(rules.aspects.filter((a: { required: boolean }) => a.required).map((a: { name: string }) => a.name), ["Brand", "US Shoe Size"]);
+  assert.deepEqual(rules.conditions.map((c: { id: string }) => c.id), ["1000", "1500", "3000"]);
   assert.equal((await handlers.setup(new Request("http://localhost:3001/api/ebay/seller/setup"))).status, 401);
 });

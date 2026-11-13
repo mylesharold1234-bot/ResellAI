@@ -1,26 +1,35 @@
 /**
  * eBay seller (Sell APIs) configuration. Server-only.
  *
- * Endpoints follow eBay's documented OAuth authorization-code grant and Sell Inventory / Account /
- * Taxonomy REST APIs. They are centralised here so they can be checked against current eBay
- * documentation in one place. They have been exercised only against mocked responses in this
- * repository; no live seller call has been made.
+ * Verified against eBay's official OpenAPI contracts (developer.ebay.com/api-docs/master/…/openapi/3,
+ * downloaded 2026-11-13):
+ * - OAuth authorizationUrl https://auth.ebay.com/oauth2/authorize and tokenUrl
+ *   https://api.ebay.com/identity/v1/oauth2/token (securitySchemes of the Inventory, Account and Media contracts).
+ * - Sell Inventory v1, Sell Account v1, Commerce Taxonomy v1 and Sell Metadata v1 on https://api.ebay.com.
+ * - Commerce Media v1_beta on https://apim.ebay.com (also listed: api.ebay.com, apiz.ebay.com).
+ * Sandbox hosts follow eBay's sandbox naming. They aren't listed in the contracts (which only name
+ * production servers), and the sandbox Media host in particular is unverified; override them if eBay differs.
  */
 export type EbayEnv = "production" | "sandbox";
 
-export const hosts: Record<EbayEnv, { auth: string; api: string }> = {
-  production: { auth: "https://auth.ebay.com", api: "https://api.ebay.com" },
-  sandbox: { auth: "https://auth.sandbox.ebay.com", api: "https://api.sandbox.ebay.com" },
+export type Endpoints = { auth: string; api: string; media: string; overridden: boolean };
+
+export const hosts: Record<EbayEnv, Omit<Endpoints, "overridden">> = {
+  production: { auth: "https://auth.ebay.com", api: "https://api.ebay.com", media: "https://apim.ebay.com" },
+  sandbox: { auth: "https://auth.sandbox.ebay.com", api: "https://api.sandbox.ebay.com", media: "https://apim.sandbox.ebay.com" },
 };
 
+/**
+ * Scopes requested at seller sign-in. sell.account (not .readonly) lets ResellAI create business policies
+ * for sellers who have none; the keyset must be granted these scopes in the eBay Developer Portal.
+ */
 export const sellerScopes = [
   "https://api.ebay.com/oauth/api_scope",
   "https://api.ebay.com/oauth/api_scope/sell.inventory",
-  "https://api.ebay.com/oauth/api_scope/sell.account.readonly",
+  "https://api.ebay.com/oauth/api_scope/sell.account",
 ];
 
 export const MARKETPLACE_ID = "EBAY_US";
-export const CATEGORY_TREE_ID = "0"; // eBay US category tree
 
 export type SellerConfig = {
   clientId: string;
@@ -30,7 +39,29 @@ export type SellerConfig = {
   tokenKey: Buffer | null;
   publishingEnabled: boolean;
   dataDir: string;
+  endpoints?: Endpoints;
 };
+
+/**
+ * Optional base-URL overrides (EBAY_SELLER_AUTH_BASE, EBAY_SELLER_API_BASE, EBAY_MEDIA_API_BASE) exist for
+ * pointing a sandbox setup at a local simulator. They're ignored in production, and plain http is
+ * allowed only for localhost.
+ */
+function override(value: string | undefined, environment: EbayEnv) {
+  const v = (value || "").trim().replace(/\/+$/, "");
+  if (!v || environment === "production") return null;
+  try {
+    const u = new URL(v);
+    if (u.protocol === "https:" || (u.protocol === "http:" && ["localhost", "127.0.0.1"].includes(u.hostname))) return u.origin;
+  } catch {
+    /* ignored */
+  }
+  return null;
+}
+
+export function endpointsFor(c: SellerConfig): Endpoints {
+  return c.endpoints ?? { ...hosts[c.environment], overridden: false };
+}
 
 export function readSellerConfig(env: Record<string, string | undefined> = process.env): SellerConfig {
   const raw = (env.EBAY_SELLER_TOKEN_KEY || "").trim();
@@ -40,14 +71,24 @@ export function readSellerConfig(env: Record<string, string | undefined> = proce
     const b = Buffer.from(raw, "base64");
     if (b.length === 32) tokenKey = b;
   }
+  const environment: EbayEnv = env.EBAY_ENVIRONMENT === "production" ? "production" : "sandbox";
+  const auth = override(env.EBAY_SELLER_AUTH_BASE, environment);
+  const api = override(env.EBAY_SELLER_API_BASE, environment);
+  const media = override(env.EBAY_MEDIA_API_BASE, environment);
   return {
     clientId: (env.EBAY_CLIENT_ID || "").trim(),
     clientSecret: (env.EBAY_CLIENT_SECRET || "").trim(),
     ruName: (env.EBAY_SELLER_RUNAME || "").trim(),
-    environment: env.EBAY_ENVIRONMENT === "production" ? "production" : "sandbox",
+    environment,
     tokenKey,
     publishingEnabled: env.EBAY_SELLER_PUBLISHING_ENABLED === "true",
     dataDir: env.RESELLAI_SELLER_DATA_DIR || `${process.cwd()}/.seller-data`,
+    endpoints: {
+      auth: auth ?? hosts[environment].auth,
+      api: api ?? hosts[environment].api,
+      media: media ?? hosts[environment].media,
+      overridden: !!(auth || api || media),
+    },
   };
 }
 
@@ -59,4 +100,9 @@ export function missingSellerSettings(c: SellerConfig) {
     !c.ruName && "EBAY_SELLER_RUNAME",
     !c.tokenKey && "EBAY_SELLER_TOKEN_KEY (32 random bytes, hex or base64)",
   ].filter(Boolean) as string[];
+}
+
+/** Public listing page for a published listing ID. The sandbox site domain is not confirmed by the contracts. */
+export function listingUrl(environment: EbayEnv, listingId: string) {
+  return `${environment === "sandbox" ? "https://sandbox.ebay.com" : "https://www.ebay.com"}/itm/${encodeURIComponent(listingId)}`;
 }

@@ -1,10 +1,10 @@
-import { hosts, sellerScopes, type SellerConfig } from "./config";
+import { endpointsFor, sellerScopes, type SellerConfig } from "./config";
 import type { SellerTokens } from "./store";
 
 export class SellerAuthError extends Error {}
 
 export function authorizeUrl(c: SellerConfig, state: string) {
-  const url = new URL("/oauth2/authorize", hosts[c.environment].auth);
+  const url = new URL("/oauth2/authorize", endpointsFor(c).auth);
   url.search = new URLSearchParams({
     client_id: c.clientId,
     redirect_uri: c.ruName, // eBay uses the RuName, not a raw URL, as redirect_uri
@@ -16,7 +16,7 @@ export function authorizeUrl(c: SellerConfig, state: string) {
 }
 
 async function tokenRequest(c: SellerConfig, body: Record<string, string>, fetcher: typeof fetch) {
-  const response = await fetcher(`${hosts[c.environment].api}/identity/v1/oauth2/token`, {
+  const response = await fetcher(`${endpointsFor(c).api}/identity/v1/oauth2/token`, {
     method: "POST",
     headers: {
       Authorization: `Basic ${Buffer.from(`${c.clientId}:${c.clientSecret}`).toString("base64")}`,

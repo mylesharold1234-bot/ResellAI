@@ -125,6 +125,14 @@ export type ListingShipping = {
   confirmed: boolean;
 };
 
+export type EbayHostedImage = {
+  url: string;
+  /** When eBay removes the image if it isn't used in an active listing (UTC). */
+  expiresAt: string | null;
+  environment: "production" | "sandbox";
+  uploadedAt: string;
+};
+
 export type EbayPublishRecord = {
   sku: string;
   offerId: string | null;
@@ -162,6 +170,12 @@ export type ListingDraft = {
     merchantLocationKey: string;
     /** Extra eBay item specifics the seller typed in (e.g. category-required aspects). User-confirmed. */
     extraAspects?: Record<string, string>;
+    /** Human-readable category path for review (e.g. "Clothing, Shoes & Accessories › … › Athletic Shoes"). */
+    categoryName?: string;
+    /** eBay condition ID chosen from the category's allowed conditions (e.g. "3000"). */
+    conditionId?: string;
+    /** Draft photos uploaded to eBay Picture Services, keyed by draft photo ID. */
+    hostedImages?: Record<string, EbayHostedImage>;
     publish: EbayPublishRecord | null;
   };
 };

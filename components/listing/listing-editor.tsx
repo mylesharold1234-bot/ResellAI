@@ -63,6 +63,23 @@ export function ListingEditor({ id }: { id: string }) {
     return () => clearTimeout(t);
   }, [draft]);
 
+  // Save immediately when leaving (e.g. eBay sign-in redirect, tab close) so the last edits aren't lost
+  // to the autosave delay.
+  const latest = useRef<ListingDraft | null>(null);
+  latest.current = draft;
+  const flush = useCallback(async () => {
+    if (latest.current && loaded.current) await saveDraft(latest.current);
+  }, []);
+  useEffect(() => {
+    const onHide = () => void flush();
+    window.addEventListener("pagehide", onHide);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      window.removeEventListener("pagehide", onHide);
+      document.removeEventListener("visibilitychange", onHide);
+    };
+  }, [flush]);
+
   const update = useCallback((fn: (d: ListingDraft) => ListingDraft) => setDraft((d) => (d ? { ...fn(d), updatedAt: new Date().toISOString() } : d)), []);
   const readiness = useMemo(() => (draft ? assessListing(draft) : null), [draft]);
 
@@ -378,7 +395,7 @@ export function ListingEditor({ id }: { id: string }) {
             <div className="export-box" aria-label="Listing export preview">{exported.text}</div>
           </section>
 
-          {draft.marketplace === "ebay" && <EbayPublishPanel draft={draft} readiness={readiness} onChange={(fn) => update(fn)} />}
+          {draft.marketplace === "ebay" && <EbayPublishPanel draft={draft} readiness={readiness} onChange={update} beforeLeave={flush} />}
         </div>
 
         <aside className="listing-aside" aria-label="Listing readiness">
