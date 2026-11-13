@@ -3,7 +3,7 @@ import { parseDraft } from "../listing/apply";
 import { assessListing } from "../listing/readiness";
 import { validateImageBytes } from "../images";
 import { createSellerClient, EbaySellerError, type SellerClient } from "./client";
-import { endpointsFor, listingUrl, missingSellerSettings, readSellerConfig, type SellerConfig } from "./config";
+import { endpointsFor, listingUrl, missingSellerSettings, parseAppUrl, readSellerConfig, type SellerConfig } from "./config";
 import { authorizeUrl, exchangeCode, refreshTokens, SellerAuthError } from "./oauth";
 import { buildInventoryItem, buildOffer, ebayPublishIssues, skuForDraft } from "./payload";
 import { locationBody, parseLocationInput, parsePolicyInput, policyBody } from "./policies";
@@ -32,6 +32,17 @@ function cookie(name: string, value: string, request: Request, maxAge: number) {
 }
 
 const safeEqual = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
+const appOrigin = (c: SellerConfig) => parseAppUrl(c.appUrl);
+
+/**
+ * The host the browser actually used. Next.js builds request.url from the server's own hostname, so a request
+ * arriving through a tunnel (ngrok sets Host and X-Forwarded-Host) would otherwise look like localhost.
+ * Only used to decide whether to forward to RESELLAI_APP_URL, a fixed target, so a spoofed header gains nothing.
+ */
+function browserHost(request: Request) {
+  const forwarded = request.headers.get("x-forwarded-host")?.split(",")[0].trim();
+  return (forwarded || request.headers.get("host") || new URL(request.url).host).toLowerCase();
+}
 const safeReturn = (p: string | undefined) => (p && /^\/listings(\/[A-Za-z0-9-]{1,64})?$/.test(p) ? p : "/listings");
 
 export type SellerDeps = { config?: SellerConfig; fetcher?: typeof fetch; now?: () => number; store?: SellerStore };
@@ -101,16 +112,25 @@ export function createSellerHandlers(deps: SellerDeps = {}) {
 
   return {
     async status(request: Request) {
-      const { c, tokens, missing } = await connection(request);
-      return json({
+      const { c, s, session, tokens, missing } = await connection(request);
+      const body = {
         environment: c.environment,
         configured: missing.length === 0,
         missing,
         publishingEnabled: c.publishingEnabled,
         testEndpoints: endpointsFor(c).overridden,
+        appUrl: appOrigin(c),
         connected: !!tokens,
         connectedAt: tokens?.connectedAt ?? null,
-      });
+      };
+      // ?check=1 makes one read-only call (business policies) to prove the stored token works on this environment.
+      if (new URL(request.url).searchParams.get("check") !== "1" || !tokens || !s || !session) return json(body);
+      try {
+        const policies = await clientFor(c, s, session).policies();
+        return json({ ...body, check: { ok: true, message: `eBay ${c.environment} accepted the connection (${policies.fulfillment.length} shipping, ${policies.payment.length} payment, ${policies.return.length} return policies found).` } });
+      } catch (e) {
+        return json({ ...body, check: { ok: false, message: e instanceof EbaySellerError || e instanceof SellerAuthError ? e.message : "eBay didn't answer the connection check." } });
+      }
     },
 
     async connect(request: Request) {
@@ -118,6 +138,8 @@ export function createSellerHandlers(deps: SellerDeps = {}) {
       const missing = missingSellerSettings(c);
       const back = safeReturn(new URL(request.url).searchParams.get("return") || undefined);
       if (missing.length) return Response.redirect(new URL(`${back}?ebay=not-configured`, request.url), 303);
+      // The OAuth state cookie must live on the origin the callback forwards to (RESELLAI_APP_URL).
+      if (browserHost(request) !== new URL(appOrigin(c)).host) return Response.redirect(new URL(`${back}?ebay=wrong-host`, `${request.headers.get("x-forwarded-proto") === "https" ? "https" : "http"}://${browserHost(request)}`), 303);
       const state = randomBytes(24).toString("hex");
       const session = cookies(request)[SESSION_COOKIE] || randomBytes(32).toString("hex");
       const headers = new Headers({ Location: authorizeUrl(c, state), "Cache-Control": "no-store" });
@@ -126,29 +148,62 @@ export function createSellerHandlers(deps: SellerDeps = {}) {
       return new Response(null, { status: 303, headers });
     },
 
+    /**
+     * eBay's "auth accepted" URL. Locally this is reached through an HTTPS tunnel whose host differs from the
+     * app's. In that case the browser is forwarded, with only the OAuth parameters, to this same route on
+     * RESELLAI_APP_URL, where the state cookie set at connect time is checked. Nothing is exchanged on the
+     * tunnel host, and the forward target is fixed by configuration (no open redirect).
+     */
     async callback(request: Request) {
       const url = new URL(request.url);
       const c = config();
+      const app = appOrigin(c);
+      if (browserHost(request) !== new URL(app).host) {
+        const forward = new URL("/api/ebay/seller/callback", app);
+        for (const k of ["state", "code", "error", "error_description"]) {
+          const v = url.searchParams.get(k);
+          if (v && v.length <= 2048) forward.searchParams.set(k, v);
+        }
+        return new Response(null, { status: 303, headers: { Location: forward.toString(), "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
+      }
       const s = store(c);
       const jar = cookies(request);
       const [expected, back] = (jar[STATE_COOKIE] || "").split("|");
-      const target = (q: string) => {
-        const headers = new Headers({ Location: new URL(`${safeReturn(back)}?ebay=${q}`, request.url).toString(), "Cache-Control": "no-store" });
+      const target = (q: string, reason = "") => {
+        const location = new URL(safeReturn(back), app);
+        location.searchParams.set("ebay", q);
+        if (reason) location.searchParams.set("reason", reason);
+        const headers = new Headers({ Location: location.toString(), "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" });
         headers.append("Set-Cookie", cookie(STATE_COOKIE, "", request, 0));
         return new Response(null, { status: 303, headers });
       };
+      const error = url.searchParams.get("error");
       const state = url.searchParams.get("state") || "";
       if (!expected || !state || !safeEqual(expected, state)) return target("state-mismatch");
-      if (url.searchParams.get("error")) return target("declined");
+      if (error) return error === "access_denied" ? target("declined") : target("failed", /^[a-z_]{1,40}$/.test(error) ? error : "");
       const code = url.searchParams.get("code");
       const session = jar[SESSION_COOKIE];
-      if (!code || !session || !s || missingSellerSettings(c).length) return target("failed");
+      if (!code || !session || !s || missingSellerSettings(c).length) return target("failed", code ? "" : "no_code");
       try {
         await s.saveTokens(session, await exchangeCode(c, code, fetcher, now()));
         return target("connected");
-      } catch {
-        return target("failed");
+      } catch (e) {
+        return target("failed", e instanceof SellerAuthError ? e.code : "");
       }
+    },
+
+    /** eBay's "auth declined" URL: the seller chose not to grant access. Forwards to the app and clears the state. */
+    async declined(request: Request) {
+      const c = config();
+      const app = appOrigin(c);
+      if (browserHost(request) !== new URL(app).host)
+        return new Response(null, { status: 303, headers: { Location: new URL("/api/ebay/seller/declined", app).toString(), "Cache-Control": "no-store" } });
+      const [, back] = (cookies(request)[STATE_COOKIE] || "").split("|");
+      const location = new URL(safeReturn(back), app);
+      location.searchParams.set("ebay", "declined");
+      const headers = new Headers({ Location: location.toString(), "Cache-Control": "no-store" });
+      headers.append("Set-Cookie", cookie(STATE_COOKIE, "", request, 0));
+      return new Response(null, { status: 303, headers });
     },
 
     async disconnect(request: Request) {

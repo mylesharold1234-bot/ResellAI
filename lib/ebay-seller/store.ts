@@ -41,7 +41,20 @@ async function atomicWrite(path: string, dir: string, contents: string) {
   await mkdir(dir, { recursive: true, mode: 0o700 });
   const tmp = join(dir, `${randomBytes(8).toString("hex")}.tmp`);
   await writeFile(tmp, contents, { mode: 0o600, flag: "wx" });
-  await rename(tmp, path);
+  // Windows (and synced folders such as OneDrive) can briefly lock the target; retry before giving up.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await rename(tmp, path);
+      return;
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code;
+      if (attempt >= 4 || !["EPERM", "EBUSY", "EACCES"].includes(code || "")) {
+        await rm(tmp, { force: true }).catch(() => undefined);
+        throw e;
+      }
+      await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
+    }
+  }
 }
 
 /**

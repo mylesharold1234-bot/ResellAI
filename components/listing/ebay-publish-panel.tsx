@@ -8,7 +8,7 @@ import type { assessListing } from "../../lib/listing/readiness";
 import type { EbayHostedImage, ListingDraft } from "../../lib/listing/types";
 import { dollars } from "./listing-bits";
 
-type Status = { environment: "production" | "sandbox"; configured: boolean; missing: string[]; publishingEnabled: boolean; testEndpoints: boolean; connected: boolean; connectedAt: string | null };
+type Status = { environment: "production" | "sandbox"; configured: boolean; missing: string[]; publishingEnabled: boolean; testEndpoints: boolean; appUrl?: string; connected: boolean; connectedAt: string | null; check?: { ok: boolean; message: string } };
 type Option = { id: string; name: string };
 type Setup = { policies: { fulfillment: Option[]; payment: Option[]; return: Option[] }; locations: { key: string; name: string }[] };
 type Rules = { aspects: CategoryAspect[]; conditions: AllowedCondition[]; conditionRequired: boolean };
@@ -16,11 +16,25 @@ type ListingState = { listingId: string | null; listingStatus: string | null; of
 
 const connectMessages: Record<string, string> = {
   connected: "eBay account connected.",
-  declined: "eBay sign-in was cancelled.",
-  "state-mismatch": "The eBay sign-in couldn't be verified. Try connecting again.",
+  declined: "You declined access on eBay, so nothing was connected. Connect again whenever you're ready.",
+  "state-mismatch": "The eBay sign-in couldn't be verified (it expired, was started in another tab, or came back to a different address). Connect again from this page.",
   failed: "eBay sign-in failed. Try again.",
   "not-configured": "eBay seller access isn't configured on this server yet.",
+  "wrong-host": "Open ResellAI at the address set in RESELLAI_APP_URL (normally http://localhost:3001) to connect eBay. The sign-in can only be checked on that address.",
 };
+
+/** Plain-language help for eBay's OAuth error codes. */
+const reasonHelp: Record<string, string> = {
+  invalid_client: "eBay rejected the App ID / Cert ID pair. Check that both come from the same Sandbox keyset.",
+  invalid_grant: "The sign-in code expired, was already used, or the RuName doesn't match the keyset. Connect again.",
+  invalid_scope: "Your keyset isn't allowed one of the requested permissions (sell.inventory, sell.account).",
+  invalid_request: "eBay rejected the sign-in request. Check EBAY_SELLER_RUNAME matches the RuName in the Developer Portal.",
+  unauthorized_client: "This keyset isn't allowed to use the authorization-code grant. Check the RuName's OAuth settings.",
+  server_error: "eBay had a temporary problem. Try again.",
+  temporarily_unavailable: "eBay is temporarily unavailable. Try again.",
+  no_code: "eBay returned without an authorization code.",
+};
+
 
 async function getJson<T>(url: string): Promise<T> {
   const r = await fetch(url, { cache: "no-store" });
@@ -55,8 +69,10 @@ export function EbayPublishPanel({ draft, readiness, onChange, beforeLeave }: { 
   const setEbay = useCallback((patch: Partial<ListingDraft["ebay"]>) => onChange((d) => ({ ...d, ebay: { ...d.ebay, ...patch } })), [onChange]);
 
   useEffect(() => {
-    const param = new URLSearchParams(window.location.search).get("ebay");
-    if (param && connectMessages[param]) setFlash(connectMessages[param]);
+    const params = new URLSearchParams(window.location.search);
+    const param = params.get("ebay");
+    const reason = params.get("reason") || "";
+    if (param && connectMessages[param]) setFlash(connectMessages[param] + (reason ? ` ${reasonHelp[reason] || `(eBay error: ${reason.replace(/[^a-z_]/g, "")})`}` : ""));
     getJson<Status>("/api/ebay/seller/status").then(setStatus, () => setError("Couldn't check eBay connection status."));
   }, []);
 
@@ -226,6 +242,7 @@ export function EbayPublishPanel({ draft, readiness, onChange, beforeLeave }: { 
       <p className="panel-sub">Uses eBay's official seller APIs with your permission. Photos, item specifics and pricing come from this draft. Nothing is listed until you confirm.</p>
       {flash && <p className="tip" role="status">{flash}</p>}
       {error && <p className="error" role="alert">{error}</p>}
+      {status?.check && <p className={status.check.ok ? "tip" : "warn-box"} role="status">{status.check.message}</p>}
       {status && !status.configured && (
         <div className="warn-box">
           <b>Direct publishing isn't set up on this server.</b> Your draft and the copy/export tools above work without it. The server needs:
@@ -258,6 +275,9 @@ export function EbayPublishPanel({ draft, readiness, onChange, beforeLeave }: { 
               Connected{status.connectedAt ? ` on ${new Date(status.connectedAt).toLocaleDateString()}` : ""}.{" "}
               <button type="button" className="text-link" onClick={async () => { await fetch("/api/ebay/seller/disconnect", { method: "POST" }); setStatus({ ...status, connected: false }); setSetup(null); }}>
                 Disconnect
+              </button>{" "}
+              <button type="button" className="text-link" onClick={async () => { try { setStatus(await getJson<Status>("/api/ebay/seller/status?check=1")); } catch (e) { setError(e instanceof Error ? e.message : "Connection check failed."); } }}>
+                Test eBay connection
               </button>
             </p>
           )}

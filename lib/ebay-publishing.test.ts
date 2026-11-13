@@ -81,7 +81,7 @@ test("endpoint overrides only apply outside production, and plain http only for 
   assert.equal(sandbox.endpoints?.api, "http://localhost:4010");
   assert.equal(sandbox.endpoints?.media, "https://apim.sandbox.ebay.com", "non-local http ignored");
   assert.equal(sandbox.endpoints?.overridden, true);
-  const prod = readSellerConfig({ EBAY_ENVIRONMENT: "production", EBAY_SELLER_API_BASE: "http://localhost:4010" });
+  const prod = readSellerConfig({ EBAY_SELLER_ENVIRONMENT: "production", EBAY_SELLER_API_BASE: "http://localhost:4010" });
   assert.equal(prod.endpoints?.api, "https://api.ebay.com");
   assert.equal(prod.endpoints?.media, "https://apim.ebay.com");
   assert.equal(prod.endpoints?.overridden, false);

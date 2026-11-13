@@ -13,7 +13,9 @@
 import { createServer } from "node:http";
 
 const port = Number(process.env.MOCK_EBAY_PORT || 4010);
+// Your RuName's "auth accepted" and "auth declined" URLs. Point them at another host (e.g. 127.0.0.1) to mimic a tunnel.
 const callback = process.env.MOCK_EBAY_CALLBACK || "http://localhost:3001/api/ebay/seller/callback";
+const declined = process.env.MOCK_EBAY_DECLINED || "http://localhost:3001/api/ebay/seller/declined";
 const state = { images: 0, offers: new Map(), items: new Map(), policies: { fulfillment: [], payment: [], return: [] }, locations: [], calls: [] };
 
 const json = (res, status, body, headers = {}) => {
@@ -35,7 +37,8 @@ createServer(async (req, res) => {
     res.writeHead(200, { "Content-Type": "text/html" });
     return res.end(`<!doctype html><title>Simulated eBay sign-in</title><body style="font-family:sans-serif;max-width:480px;margin:60px auto">
       <h1>Simulated eBay sign-in</h1><p>This local test server stands in for eBay. Scopes requested:</p><pre style="white-space:pre-wrap">${(url.searchParams.get("scope") || "").replace(/</g, "&lt;")}</pre>
-      <a id="agree" href="${back}" style="display:inline-block;padding:12px 18px;background:#3665f3;color:#fff;border-radius:20px;text-decoration:none">Agree</a></body>`);
+      <a id="agree" href="${back}" style="display:inline-block;padding:12px 18px;background:#3665f3;color:#fff;border-radius:20px;text-decoration:none">Agree</a>
+      <a id="decline" href="${declined}" style="margin-left:12px">Decline</a></body>`);
   }
   if (p === "/identity/v1/oauth2/token") {
     const form = new URLSearchParams(body.toString());

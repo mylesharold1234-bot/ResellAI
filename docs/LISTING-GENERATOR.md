@@ -101,38 +101,53 @@ Downloaded from developer.ebay.com on 2026-11-13: the OpenAPI contracts for Sell
 - **A browser end-to-end run** went from photo to published listing against a local simulator (`scripts/mock-ebay-seller.mjs`): simulated sign-in, photo upload, category, specifics, condition, policy and location creation, one-confirmation publish, status, duplicate-replay protection, and desktop and phone layouts.
 - **No live eBay call has been made,** in sandbox or production. Sandbox testing needs your sandbox keyset and a sandbox seller (test) user.
 
-### What you need to set up
-1. **eBay Developer account** with a keyset for the environment (start with Sandbox):
-   - App ID: `EBAY_CLIENT_ID`
-   - Cert ID: `EBAY_CLIENT_SECRET`
-2. **User token settings (RuName):** in the Developer Portal → User Tokens → "Get a Token from eBay via Your Application", add a redirect.
-   - Set the auth-accepted and declined URLs to `<your app origin>/api/ebay/seller/callback`. eBay expects HTTPS, so a local test needs an HTTPS tunnel to port 3001.
-   - Put the RuName in `EBAY_SELLER_RUNAME`.
-3. **OAuth scopes granted to the keyset:** `api_scope`, `sell.inventory`, `sell.account`.
-4. **A seller account** (a sandbox test user for Sandbox) that can list items: payment/payout set up for production, and business policies enabled. ResellAI can create the policies and location if none exist.
-5. **Production:** eBay must approve your application for production use of the Sell APIs. Your listings must follow eBay's policies.
-6. **Server settings** (`.env.local`, never committed):
+### What you need to set up (Sandbox)
+
+**How sign-in works locally.** You use ResellAI at `http://localhost:3001`. eBay will only send the browser back to an HTTPS address, so an HTTPS tunnel (ngrok) to port 3001 receives eBay's callback. The callback immediately forwards the browser to `http://localhost:3001/api/ebay/seller/callback`. There the one-time state is checked against the httpOnly cookie set when you clicked Connect, and only then is the authorization code exchanged.
+- Never open the app through the tunnel address. Drafts are stored per address, and the sign-in check only runs on `RESELLAI_APP_URL`.
+- The tunnel is only for eBay's redirect.
+
+1. **Sandbox keyset:** App ID and Cert ID from the Developer Portal → Application Keys → Sandbox.
+2. **HTTPS tunnel:** run `ngrok http 3001`. A free static ngrok domain keeps the URL the same between runs.
+3. **RuName** (Developer Portal → User Tokens (Sandbox) → "Get a Token from eBay via Your Application" → add an eBay Redirect URL, OAuth enabled):
+   - Auth accepted URL: `https://<your-tunnel-domain>/api/ebay/seller/callback`
+   - Auth declined URL: `https://<your-tunnel-domain>/api/ebay/seller/declined`
+   - Privacy policy URL: any HTTPS page you control (required by the form)
+
+   Copy the generated RuName string (e.g. `YourName-YourApp-SBX-…`), not a URL.
+4. **Scopes:** `api_scope`, `sell.inventory`, `sell.account`. Sandbox keysets normally include them.
+5. **Sandbox test seller user** (Developer Portal → Sandbox user). You'll sign in as this user.
+6. **`.env.local`** (never committed):
    ```dotenv
-   EBAY_ENVIRONMENT=sandbox
-   EBAY_CLIENT_ID=...
-   EBAY_CLIENT_SECRET=...
+   EBAY_SELLER_ENVIRONMENT=sandbox
+   EBAY_SELLER_CLIENT_ID=...        # Sandbox App ID (or leave blank to use EBAY_CLIENT_ID)
+   EBAY_SELLER_CLIENT_SECRET=...    # Sandbox Cert ID (or leave blank to use EBAY_CLIENT_SECRET)
    EBAY_SELLER_RUNAME=...
-   EBAY_SELLER_TOKEN_KEY=...            # node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-   EBAY_SELLER_PUBLISHING_ENABLED=true  # allows ResellAI to upload photos, create policies and publish
-   # Optional (sandbox only) host overrides if eBay's sandbox hosts differ, or to use the local simulator:
-   # EBAY_SELLER_AUTH_BASE=  EBAY_SELLER_API_BASE=  EBAY_MEDIA_API_BASE=
+   EBAY_SELLER_TOKEN_KEY=...        # node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   EBAY_SELLER_PUBLISHING_ENABLED=true
+   RESELLAI_APP_URL=http://localhost:3001
    ```
-   Restart `npm run dev` after changing settings.
+   Keep your existing `EBAY_ENVIRONMENT` / `EBAY_CLIENT_ID` / `EBAY_CLIENT_SECRET` for price comparisons. Publishing ignores `EBAY_ENVIRONMENT` and stays in Sandbox unless `EBAY_SELLER_ENVIRONMENT=production`. Restart `npm run dev` after any change.
+7. **Production** later requires eBay's approval of your application for the Sell APIs, a production keyset and RuName, and `EBAY_SELLER_ENVIRONMENT=production`.
+
+**Sign-in outcomes shown in the editor:**
+- **Connected.**
+- **Declined:** nothing stored.
+- **State mismatch:** expired, other tab, or wrong address. Nothing stored.
+- **eBay errors** with plain-language help: `invalid_client` (App ID/Cert ID pair), `invalid_grant` (expired code or RuName mismatch), `invalid_scope`, and others.
+- **Wrong address:** you opened the app somewhere other than `RESELLAI_APP_URL`.
+
+"Test eBay connection" makes one read-only call (business policies) to prove the stored token works.
 
 ### Trying the whole flow without eBay (simulator)
 1. Start the simulator:
    ```bash
    node scripts/mock-ebay-seller.mjs
    ```
-2. In another terminal, start ResellAI pointed at it, with **fake** values only: set `EBAY_ENVIRONMENT=sandbox`, any values for the client ID/secret/RuName, a random `EBAY_SELLER_TOKEN_KEY`, `EBAY_SELLER_PUBLISHING_ENABLED=true` and the three `*_BASE` overrides set to `http://localhost:4010`.
+2. In another terminal, start ResellAI pointed at it, with **fake** values only: `EBAY_SELLER_ENVIRONMENT=sandbox`, any values for `EBAY_SELLER_CLIENT_ID`/`EBAY_SELLER_CLIENT_SECRET`/`EBAY_SELLER_RUNAME`, a random `EBAY_SELLER_TOKEN_KEY`, `EBAY_SELLER_PUBLISHING_ENABLED=true` and the three `*_BASE` overrides set to `http://localhost:4010`.
 3. The publish panel is labelled "Test endpoints · simulated", and nothing reaches eBay.
 
-The overrides are ignored when `EBAY_ENVIRONMENT=production`.
+The overrides are ignored when `EBAY_SELLER_ENVIRONMENT=production`. To mimic the tunnel, start the simulator with `MOCK_EBAY_CALLBACK=http://127.0.0.1:3001/api/ebay/seller/callback` and `MOCK_EBAY_DECLINED=http://127.0.0.1:3001/api/ebay/seller/declined` while you browse at `http://localhost:3001`.
 
 ## Other marketplaces
 Mercari, Facebook Marketplace and others get **copy/export**: per-field copy buttons, "Copy everything" and a `.txt` download, with marketplace-specific title/description limits and condition hints. There is no automation or browser scripting of these sites.
@@ -141,6 +156,7 @@ Mercari, Facebook Marketplace and others get **copy/export**: per-field copy but
 - `lib/listing-core.test.ts` (12): categories, provenance, readiness, claim audit, templates, evidence summary, condition fit, proceeds/fees, regeneration merge, draft validation, export.
 - `lib/listing-generate.test.ts` (7): template fallback without a key, facts-only prompt, hallucination replacement, length limits, per-field regeneration, OpenAI failure fallback, input validation and origin checks. OpenAI responses are mocked.
 - `lib/ebay-seller.test.ts` (12): configuration, authorize URL, token encryption, OAuth state verification and cookies, refresh, payload mapping, publish guards, single publish, concurrency, failure recovery, existing listings, setup.
+- `lib/ebay-oauth-tunnel.test.ts` (9): app URL validation, authorize request, tunnel-host forwarding (only OAuth params, no exchange), cookie-bound state (login CSRF), denial and eBay error codes, declined route, wrong-address guard, connection check, seller/pricing environment separation.
 - `lib/ebay-publishing.test.ts` (13): scopes, endpoint overrides, Media API photo upload and its guards, hosted-image reuse/expiry, condition table and category-allowed conditions, aspect mapping (including selection-only), description markup and length, category rules, shipping services, policy and location creation, server-side rule re-check on publish, listing status. eBay responses are simulated.
 
 Run: `npm test`, `npm run typecheck`, `npm run build`.

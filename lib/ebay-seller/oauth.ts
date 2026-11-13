@@ -1,7 +1,12 @@
 import { endpointsFor, sellerScopes, type SellerConfig } from "./config";
 import type { SellerTokens } from "./store";
 
-export class SellerAuthError extends Error {}
+export class SellerAuthError extends Error {
+  /** eBay's OAuth error code (e.g. invalid_client, invalid_grant, invalid_scope), when it sent one. */
+  constructor(message: string, public code = "") {
+    super(message);
+  }
+}
 
 export function authorizeUrl(c: SellerConfig, state: string) {
   const url = new URL("/oauth2/authorize", endpointsFor(c).auth);
@@ -34,8 +39,8 @@ async function tokenRequest(c: SellerConfig, body: Record<string, string>, fetch
   }
   if (!response.ok) {
     // Never echo token responses; surface only eBay's error code.
-    const code = typeof json.error === "string" ? ` (${json.error})` : "";
-    throw new SellerAuthError(`eBay sign-in failed${code}.`);
+    const code = typeof json.error === "string" && /^[a-z_]{1,40}$/.test(json.error) ? json.error : "";
+    throw new SellerAuthError(`eBay sign-in failed${code ? ` (${code})` : ""}.`, code);
   }
   if (typeof json.access_token !== "string" || typeof json.expires_in !== "number") throw new SellerAuthError("eBay returned an unreadable sign-in response.");
   return json;
