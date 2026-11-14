@@ -48,6 +48,8 @@ export type ListingAttribute = {
   required: boolean;
   /** Seller explicitly confirmed an AI-inferred or identified value. */
   confirmed: boolean;
+  /** Set when the value was approved as part of "Confirm identification" rather than in the listing editor. */
+  confirmedVia?: "identification";
   hint?: string;
 };
 
@@ -178,4 +180,9 @@ export type ListingDraft = {
     hostedImages?: Record<string, EbayHostedImage>;
     publish: EbayPublishRecord | null;
   };
+  /**
+   * Fingerprint of the confirmed facts each generated text was written from. When the facts change,
+   * generated text is refreshed automatically; text the seller edited is only flagged.
+   */
+  generatedFrom?: Partial<Record<"title" | "description" | "condition", string>>;
 };

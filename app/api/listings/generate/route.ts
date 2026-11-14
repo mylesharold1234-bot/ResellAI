@@ -14,7 +14,8 @@ export async function POST(request: Request) {
   try {
     return await createListingGenerateHandler({
       apiKey: process.env.OPENAI_API_KEY,
-      model: process.env.OPENAI_LISTING_MODEL || process.env.OPENAI_VISION_MODEL || "gpt-4.1-mini",
+      // Listing copy uses its own (full-size) model; OPENAI_LISTING_MODEL overrides it.
+      model: process.env.OPENAI_LISTING_MODEL || undefined,
     })(request);
   } finally {
     active--;

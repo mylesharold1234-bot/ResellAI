@@ -140,11 +140,13 @@ test("payloads map condition, aspects, package and offer fields from confirmed d
   assert.equal(item.product.aspects.Brand[0], "Nike");
   assert.equal(item.product.aspects["US Shoe Size"][0], "10");
   assert.equal(item.product.aspects["Style Code"][0], "DD1391-100");
-  assert.equal(item.packageWeightAndSize?.weight.value, 3.25);
+  assert.equal(item.packageWeightAndSize?.weight?.value, 3.25);
   assert.equal(item.conditionDescription, "Pre-owned. Light creasing.");
   assert.ok(item.product.title.length <= 80);
-  const unconfirmed = createListingDraft({ ...{ id: "x", now: "n", identification: d.identification, details: d.details, sources: { model: "ai-inferred" }, photos: [], ebay: null, mercari: null } });
-  assert.ok(!buildAspects(unconfirmed).Model, "unconfirmed AI-inferred model is not sent to eBay");
+  const fresh = createListingDraft({ ...{ id: "x", now: "n", identification: d.identification, details: d.details, sources: { model: "ai-inferred" }, photos: [], ebay: null, mercari: null } });
+  assert.equal(buildAspects(fresh).Model?.[0], "Dunk Low", "the model approved at identification fills eBay's Model without asking again");
+  const guessed = { ...fresh, attributes: fresh.attributes.map((a) => (a.key === "material" ? { ...a, value: "Leather", source: "ai-inferred" as const, confirmed: false } : a)) };
+  assert.ok(!buildAspects(guessed)["Upper Material"], "an unconfirmed AI inference is not sent to eBay");
   const offer = buildOffer(d);
   assert.equal(offer.sku, skuForDraft(d.id));
   assert.ok(offer.sku.length <= 50);

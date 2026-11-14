@@ -92,3 +92,220 @@
 .dialog dt { color: var(--muted) }
 .dialog dd { margin: 0; overflow-wrap: anywhere }
 .dialog .actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 18px }
+
+/* ───────────── Redesigned listing workspace (lx-*) ───────────── */
+.lx-page { padding-top: 22px; padding-bottom: 96px }
+.lx-page .back { margin-bottom: 8px }
+.lx-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; flex-wrap: wrap; margin-bottom: 18px }
+.lx-top-text { min-width: 0 }
+.lx-h1 { font-size: 28px; line-height: 1.2; letter-spacing: -1px; font-weight: 650; margin: 2px 0 4px; overflow-wrap: anywhere }
+.lx-market { display: inline-flex; padding: 3px; background: var(--soft); border: 1px solid var(--line); border-radius: 10px; gap: 2px; flex-wrap: wrap }
+.lx-market button { border: 0; background: transparent; color: var(--muted); font-size: 12.5px; font-weight: 600; padding: 8px 13px; border-radius: 7px }
+.lx-market button[aria-pressed="true"] { background: #fff; color: var(--navy); box-shadow: 0 1px 3px rgba(20, 35, 62, .12) }
+.lx-grid { display: grid; grid-template-columns: minmax(0, 1fr) 352px; gap: 20px; align-items: start }
+.lx-main { display: grid; gap: 14px; min-width: 0 }
+.lx-side { position: sticky; top: 14px; display: grid; gap: 14px; min-width: 0; max-height: calc(100vh - 28px); overflow: auto; scrollbar-width: thin }
+.lx-card { background: #fff; border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 1px 2px rgba(20, 35, 62, .04) }
+.lx-muted { color: var(--muted); font-size: 12.5px; line-height: 1.55; margin: 0 }
+.lx-small { font-size: 12px }
+.lx-center { justify-self: center }
+.lx-strong { font-weight: 600; font-size: 13.5px; margin: 0 }
+.lx-note { font-size: 12px; color: #7a4a00; background: #fff8ec; border-radius: 8px; padding: 8px 10px; margin: 0 }
+.lx-input, .lx-field input, .lx-field select, .lx-fact-value input, .lx-fact-value select, .lx-spec input, .lx-flaws input:not([type=checkbox]), .lx-mini-field input {
+  width: 100%; border: 1px solid #d8dfec; border-radius: 8px; padding: 9px 11px; font: inherit; font-size: 14px; color: var(--navy); background: #fff; min-width: 0
+}
+.lx-page input:focus, .lx-page select:focus, .lx-page textarea:focus, .lx-review input:focus, .lx-review select:focus, .lx-review textarea:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(65, 105, 225, .18) }
+.lx-page label:focus-within, .lx-review label:focus-within { outline: none }
+.lx-icon-btn { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 7px; border: 1px solid transparent; background: transparent; color: var(--muted) }
+.lx-icon-btn:hover:not(:disabled) { background: var(--soft); color: var(--navy) }
+.lx-icon-btn:disabled { opacity: .45; cursor: not-allowed }
+
+/* Preview: the centerpiece */
+.lx-preview { display: grid; grid-template-columns: minmax(220px, 300px) minmax(0, 1fr); gap: 22px; padding: 20px }
+.lx-media { display: grid; gap: 10px; align-content: start; position: sticky; top: 14px }
+.lx-hero { aspect-ratio: 1; background: var(--soft); border-radius: 12px; overflow: hidden; display: grid; place-items: center }
+.lx-hero img { width: 100%; height: 100%; object-fit: contain }
+.lx-hero-empty { color: var(--muted); font-size: 12px }
+.lx-thumbs { display: flex; gap: 6px; flex-wrap: wrap }
+.lx-thumb { width: 48px; height: 48px; border-radius: 8px; border: 2px solid transparent; padding: 0; background: var(--soft); overflow: hidden }
+.lx-thumb img { width: 100%; height: 100%; object-fit: cover }
+.lx-thumb[aria-pressed="true"] { border-color: var(--blue) }
+.lx-media > .text-link { justify-self: start }
+.lx-content { display: grid; gap: 14px; min-width: 0; align-content: start }
+.lx-gen-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap }
+.lx-gen-row .lx-muted { display: inline-flex; align-items: center; gap: 6px; font-size: 12px }
+.lx-writing { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--blue); font-weight: 600 }
+.lx-stale { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; background: #fff8ec; color: #7a4a00; border-radius: 9px; padding: 10px 12px; font-size: 12.5px }
+.lx-field-block { display: grid; gap: 6px; scroll-margin-top: 16px }
+.lx-label-row { display: flex; justify-content: space-between; align-items: center; gap: 8px }
+.lx-label-row label { font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--muted) }
+.lx-meta { display: inline-flex; align-items: center; gap: 10px; font-size: 11px; color: var(--muted) }
+.lx-meta .over { color: #ac3340; font-weight: 700 }
+.lx-title-input { width: calc(100% + 10px); border: 1px solid transparent; border-radius: 9px; padding: 8px 10px; margin-left: -10px; font: inherit; font-size: 20px; font-weight: 650; letter-spacing: -.4px; line-height: 1.3; color: var(--navy); background: transparent }
+.lx-title-input:hover { border-color: var(--line); background: #fcfdff }
+.lx-desc { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font: inherit; font-size: 14px; line-height: 1.65; color: var(--navy); resize: vertical; background: #fcfdff }
+.lx-inline-warn { font-size: 12px; color: #9a5b00; margin: 0 }
+.lx-price-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; scroll-margin-top: 16px }
+.lx-price { display: inline-flex; align-items: baseline; border: 1px solid transparent; border-radius: 10px; padding: 2px 8px; margin-left: -8px }
+.lx-price:hover, .lx-price:focus-within { border-color: var(--line); background: #fcfdff }
+.lx-currency { font-size: 26px; font-weight: 650; color: var(--navy) }
+.lx-price input { border: 0; background: transparent; font: inherit; font-size: 30px; font-weight: 700; letter-spacing: -1px; color: var(--navy); width: 5.2ch; padding: 0 0 0 2px }
+.lx-page .lx-price input:focus { box-shadow: none }
+.lx-price-note { display: grid; gap: 6px; font-size: 12px; color: var(--muted); min-width: 0; flex: 1 1 220px }
+.lx-chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center }
+.lx-chip { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 5px 10px; font-size: 12px; font-weight: 600; color: var(--navy) }
+.lx-chip:hover { border-color: #b9c6e8 }
+.lx-chip[aria-pressed="true"] { border-color: var(--blue); background: #eef2ff; color: #2b46a8 }
+.lx-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; padding: 12px; background: var(--soft); border-radius: 12px; scroll-margin-top: 16px }
+.lx-fact { display: grid; grid-template-columns: 92px minmax(0, 1fr); align-items: center; gap: 3px 8px; min-width: 0; scroll-margin-top: 16px }
+.lx-fact-label { font-size: 11.5px; color: var(--muted); font-weight: 600 }
+.lx-fact-value { display: flex; gap: 6px; min-width: 0 }
+.lx-fact-value input, .lx-fact-value select { padding: 7px 9px; font-size: 13.5px; background: #fff }
+.lx-fact > .lx-prov { grid-column: 2; justify-self: start }
+.lx-prov { display: inline-flex; align-items: center; gap: 3px; font-size: 10.5px; font-weight: 700; border-radius: 999px; padding: 2px 7px; white-space: nowrap; border: 0; font-family: inherit }
+.lx-prov.ok { color: #1d7a4a; background: #e7f6ee }
+.lx-prov.id { color: #3653c4; background: #eef2ff }
+.lx-prov.ai { color: #9a5b00; background: #fff1d9 }
+.lx-prov.need { color: #ac3340; background: #fdecee }
+.lx-prov.as-btn { cursor: pointer }
+.lx-prov.as-btn:hover { background: #ffe6bd }
+.lx-flaws { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 4px 8px; align-items: center }
+.lx-flaws .check-row { grid-column: 2; margin-top: 0 }
+.lx-subtle > summary { cursor: pointer; font-size: 12.5px; color: var(--muted); font-weight: 600 }
+.lx-subtle[open] > summary { margin-bottom: 8px }
+
+/* Collapsible sections */
+.lx-section > summary, .lx-seller > summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 15px 18px; border-radius: 14px }
+.lx-section > summary::-webkit-details-marker, .lx-seller > summary::-webkit-details-marker { display: none }
+.lx-section > summary::after, .lx-seller > summary::after { content: ""; width: 8px; height: 8px; border-right: 2px solid #97a2b6; border-bottom: 2px solid #97a2b6; transform: rotate(45deg); flex: none; margin-left: 6px; transition: transform .15s }
+.lx-section[open] > summary::after, .lx-seller[open] > summary::after { transform: rotate(-135deg) }
+.lx-section > summary:hover, .lx-seller > summary:hover { background: #fafbfe }
+.lx-section > summary:focus-visible, .lx-seller > summary:focus-visible { outline: 3px solid #7294ff; outline-offset: 2px }
+.lx-section-title, .lx-seller > summary > span { font-weight: 650; font-size: 14.5px }
+.lx-section > summary small, .lx-seller > summary small { color: var(--muted); font-size: 12px; margin-left: auto; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60% }
+.lx-section-body, .lx-seller-body { padding: 0 18px 18px; display: grid; gap: 12px }
+.lx-section, .lx-seller { scroll-margin-top: 16px }
+.lx-bare .evidence-cards { margin-top: 4px }
+.lx-bare .panel-sub { margin-top: 0 }
+.lx-spec-grid { display: grid; gap: 8px; margin-top: 10px }
+.lx-spec { display: grid; grid-template-columns: 160px minmax(0, 1fr) 150px; align-items: center; gap: 10px }
+.lx-spec label { font-size: 13px; font-weight: 600 }
+.lx-spec-prov { display: flex; justify-content: flex-start }
+.lx-field-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px }
+.lx-field { display: grid; gap: 5px; font-size: 12px; color: var(--muted); min-width: 0 }
+.lx-tips { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 13px; line-height: 1.55 }
+.lx-tips li { display: grid; grid-template-columns: 16px 1fr; gap: 8px; color: var(--navy) }
+.lx-tips svg { color: var(--blue); margin-top: 3px }
+.lx-ebay { display: grid; gap: 14px }
+.lx-ebay-row { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 10px; align-items: start }
+.lx-aspects { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px }
+.lx-aspects li { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 10px; align-items: center; font-size: 13px }
+.lx-aspect-val { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap }
+
+/* Side panel: checklist + Review & Publish */
+.lx-status { padding: 18px; display: grid; gap: 12px }
+.lx-status-h { font-size: 17px; letter-spacing: -.3px; margin: 0 }
+.lx-ready { display: flex; align-items: center; gap: 8px; color: #1d7a4a; font-weight: 650; font-size: 15px; margin: 0 }
+.lx-review-btn { width: 100%; padding: 14px 18px; font-size: 14.5px }
+.lx-reqs { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px }
+.lx-req { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: #fff }
+.lx-reqs.blocker .lx-req-icon { color: #c2410c }
+.lx-reqs.optional .lx-req { background: #fcfdff }
+.lx-reqs.optional .lx-req-icon { color: #9aa5b8 }
+.lx-req-icon { padding-top: 1px }
+.lx-req-body { display: grid; gap: 6px; min-width: 0 }
+.lx-req-msg { font-size: 13px; font-weight: 600; line-height: 1.4; margin: 0; overflow-wrap: anywhere }
+.lx-req-why { font-size: 12px; color: var(--muted); line-height: 1.45; margin: 0 }
+.lx-fix-row { display: flex; gap: 6px; align-items: center; min-width: 0 }
+.lx-fix-row.wrap { flex-wrap: wrap }
+.lx-fix-row .lx-input { padding: 7px 9px; font-size: 13px }
+.lx-fix-row .mini-button { white-space: nowrap }
+.lx-prefix { font-weight: 700; color: var(--muted) }
+.lx-fix-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px }
+.lx-mini-field { display: grid; gap: 3px; font-size: 10.5px; color: var(--muted) }
+.lx-mini-field input { padding: 6px 7px; font-size: 13px }
+.lx-seller-body { padding-top: 2px }
+.lx-conn { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap }
+.lx-ok { display: inline-flex; align-items: center; gap: 6px; color: #1d7a4a; font-weight: 600; font-size: 13px }
+.lx-conn-actions { display: inline-flex; gap: 14px }
+.lx-conn-actions .text-link { font-size: 12.5px; color: var(--blue) }
+.lx-check { display: flex; gap: 6px; align-items: flex-start; font-size: 12.5px; line-height: 1.45; border-radius: 8px; padding: 8px 10px; margin: 8px 0 0 }
+.lx-check.ok { background: #e7f6ee; color: #1d5f3c }
+.lx-check.bad { background: #fff1f1; color: #8f2a35 }
+.lx-check svg { margin-top: 2px }
+.lx-connect { display: grid; gap: 10px; justify-items: start }
+.lx-settings { display: grid; gap: 10px }
+.lx-create { border: 1px dashed #cdd6e8; border-radius: 10px; padding: 12px; display: grid; gap: 8px; font-size: 12.5px; background: #fafbfe }
+
+/* Mobile action bar */
+.lx-mobile-bar { display: none }
+
+/* Review dialog */
+.lx-review { background: #fff; border-radius: 16px; width: min(940px, 100%); max-height: min(92vh, 900px); display: grid; grid-template-rows: auto minmax(0, 1fr) auto; box-shadow: 0 24px 70px rgba(10, 20, 40, .3); overflow: hidden }
+.lx-review-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 18px 22px; border-bottom: 1px solid var(--line) }
+.lx-review-head > div { display: flex; align-items: center; gap: 10px; flex-wrap: wrap }
+.lx-review-head h2 { font-size: 20px; letter-spacing: -.5px; outline: none }
+.lx-review-body { overflow: auto; padding: 18px 22px; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 22px; align-content: start }
+.lx-review-preview { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 14px; align-content: start }
+.lx-review-photo { aspect-ratio: 1; background: var(--soft); border-radius: 10px; overflow: hidden }
+.lx-review-photo img { width: 100%; height: 100%; object-fit: contain }
+.lx-review-title { font-size: 15.5px; line-height: 1.35; letter-spacing: -.2px; margin: 0; overflow-wrap: anywhere }
+.lx-review-price { font-size: 22px; font-weight: 700; margin: 4px 0 8px }
+.lx-review-dl { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 5px 10px; font-size: 12.5px; margin: 0 }
+.lx-review-dl dt { color: var(--muted) }
+.lx-review-dl dd { margin: 0; text-align: left; overflow-wrap: anywhere }
+.lx-review-desc { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 10px }
+.lx-review-desc > summary { cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--muted) }
+.lx-desc-preview { white-space: pre-wrap; font-size: 13px; line-height: 1.6; background: var(--soft); border-radius: 10px; padding: 12px; margin-top: 8px; max-height: 260px; overflow: auto }
+.lx-review-reqs { display: grid; gap: 12px; align-content: start }
+.lx-review-sub { font-size: 14px; display: flex; align-items: center; gap: 8px; margin: 0 }
+.lx-count { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; font-size: 11.5px; font-weight: 700 }
+.lx-count.bad { background: #fff1e6; color: #c2410c }
+.lx-optional > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 8px }
+.lx-review-body > .tip, .lx-review-body > .warn-box, .lx-review-body > .ready-banner, .lx-review-body > .lx-muted { grid-column: 1 / -1; margin-top: 0 }
+.lx-review-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 22px; border-top: 1px solid var(--line); background: #fbfcfe; flex-wrap: wrap }
+.lx-foot-note { font-size: 12.5px; color: var(--muted); margin: 0; flex: 1 1 240px }
+.lx-foot-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end }
+.lx-foot-actions .button { padding: 12px 18px }
+.lx-secondary { padding: 12px 16px; font-size: 13.5px }
+
+@media (max-width: 1100px) {
+  .lx-grid { grid-template-columns: minmax(0, 1fr) 320px }
+  .lx-preview { grid-template-columns: minmax(0, 1fr) }
+  .lx-media { position: static; grid-template-columns: minmax(0, 240px) 1fr; align-items: start }
+  .lx-media .lx-hero { grid-row: span 2 }
+}
+@media (max-width: 900px) {
+  .lx-grid { grid-template-columns: minmax(0, 1fr) }
+  .lx-side { position: static; max-height: none; overflow: visible }
+  .lx-status .lx-review-btn { display: none }
+  .lx-mobile-bar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); background: rgba(255, 255, 255, .96); border-top: 1px solid var(--line); box-shadow: 0 -6px 20px rgba(20, 35, 62, .08); backdrop-filter: blur(6px) }
+  .lx-mobile-bar span { font-size: 13px; font-weight: 600; color: var(--muted) }
+  .lx-mobile-bar .button { padding: 12px 16px; font-size: 14px }
+  .lx-review-body { grid-template-columns: minmax(0, 1fr) }
+}
+@media (max-width: 640px) {
+  .lx-page.wrap { padding-left: 16px; padding-right: 16px }
+  .lx-h1 { font-size: 22px }
+  .lx-market { width: 100% }
+  .lx-market button { flex: 1 1 auto; padding: 8px 6px }
+  .lx-preview { padding: 14px; gap: 14px }
+  .lx-media { grid-template-columns: minmax(0, 1fr) }
+  .lx-media .lx-hero { grid-row: auto; aspect-ratio: 4 / 3 }
+  .lx-facts { grid-template-columns: minmax(0, 1fr) }
+  .lx-title-input { font-size: 18px }
+  .lx-spec { grid-template-columns: minmax(0, 1fr); gap: 4px }
+  .lx-ebay-row, .lx-aspects li { grid-template-columns: minmax(0, 1fr); gap: 4px }
+  .lx-fix-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) }
+  .lx-section > summary small, .lx-seller > summary small { max-width: 45% }
+  .dialog-backdrop.lx-review-backdrop { padding: 0; place-items: end center }
+  .lx-review { border-radius: 16px 16px 0 0; max-height: 94vh }
+  .lx-review-head, .lx-review-body, .lx-review-foot { padding-left: 16px; padding-right: 16px }
+  .lx-review-preview { grid-template-columns: 84px minmax(0, 1fr) }
+  .lx-foot-actions { width: 100% }
+  .lx-foot-actions .button { flex: 1 }
+}
+@media (prefers-reduced-motion: reduce) { .lx-section > summary::after, .lx-seller > summary::after { transition: none } }
+.lx-fix-row > .lx-input, .lx-fix-row > select { flex: 1 1 140px; width: auto }
+@media (max-width: 640px) { .lx-media .lx-hero { aspect-ratio: auto; height: 220px } }
+.lx-flaws .check-row input, .lx-page .check-row input[type=checkbox] { width: 17px; height: 17px; flex: none }

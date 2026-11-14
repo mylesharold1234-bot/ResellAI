@@ -22,11 +22,13 @@ function dedupe(parts: string[]) {
   const seen = new Set<string>();
   return parts
     .map((part) => part.split(/\s+/).filter((w) => {
+      if (!w) return false;
       const k = w.toLowerCase().replace(/[^a-z0-9.'-]/g, "");
-      if (!k || seen.has(k)) return false;
+      if (!k) return /^[/&+]$/.test(w); // keep separators such as "Black / White"
+      if (seen.has(k)) return false;
       seen.add(k);
       return true;
-    }).join(" "))
+    }).join(" ").replace(/^[/&+]\s*|\s*[/&+]$/g, ""))
     .filter(Boolean);
 }
 
@@ -64,34 +66,97 @@ export function buildTitle(draft: ListingDraft, marketplace: ListingMarketplace 
   return title.length <= limit ? title : title.slice(0, limit).replace(/\s+\S*$/, "");
 }
 
+/** "US Men's 10", "US Women's 8.5", "M (Men's)": size and department as buyers read them. */
+export function sizeLabel(draft: ListingDraft) {
+  const size = value(draft, "size");
+  if (!size) return "";
+  const dept = value(draft, "department");
+  const deptText = dept === "Youth" ? "Youth" : dept ? `${dept}'s` : "";
+  if (draft.category === "footwear" && /^\d/.test(size)) return deptText ? `US ${deptText} ${size}` : `US ${size}`;
+  return deptText ? `${size} (${deptText})` : size;
+}
+
+const sneakerWords = /\b(sneakers?|dunk|jordan|air max|air force|yeezy|runner|running|trainer|basketball|skate|new balance|samba|gazelle|forum|chuck|vans|converse)\b/i;
+
+/** The plain noun for the item ("sneakers", "shoes", "item"), used in natural sentences. */
+export function itemNoun(draft: ListingDraft) {
+  const name = `${draft.identification.productName || ""} ${draft.identification.model || ""} ${draft.identification.category || ""}`;
+  if (draft.category === "footwear") return sneakerWords.test(name) ? "sneakers" : "shoes";
+  return "item";
+}
+
 export function buildConditionDescription(draft: ListingDraft) {
   const c = draft.condition;
   const lines: string[] = [];
   const phrase = conditionPhrase(draft);
   if (phrase) lines.push(`${phrase}.`);
-  if (c.grade === "new" && c.packaging === "") lines.push("Packaging: not specified.");
   if (c.defects.trim()) lines.push(`Flaws noted by the seller: ${c.defects.trim().replace(/\.?$/, ".")}`);
-  else if (c.noKnownDefects) lines.push("No other flaws known to the seller.");
-  lines.push("Please review all photos for the exact condition.");
+  else if (c.noKnownDefects && c.grade && c.grade !== "new") lines.push("The seller isn't aware of any flaws beyond normal signs of use.");
+  if (c.grade && c.grade !== "new") lines.push("Please see the photos for the exact condition.");
   return lines.join(" ");
 }
 
-/** Fact-only description. Sections without confirmed information are omitted rather than guessed. */
+/**
+ * Fact-only description in the format buyers scan: a short natural introduction, a key-details block and a
+ * closing line. Details without a confirmed value are left out silently rather than called "missing".
+ */
 export function buildDescription(draft: ListingDraft, marketplace: ListingMarketplace = draft.marketplace) {
   const v = (k: AttributeKey) => value(draft, k);
-  const name = [v("brand"), v("model") || v("productType")].filter(Boolean);
-  const intro = dedupe(name).join(" ") + (v("color") ? ` in ${v("color")}` : "") + ".";
-  const specifics = textAttributes(draft).filter((a) => a.key !== "productType").map((a) => `- ${a.label}: ${a.value.trim()}`);
-  const sections = [intro];
-  if (specifics.length) sections.push(["Item details:", ...specifics].join("\n"));
-  sections.push(`Condition:\n${(draft.condition.description || buildConditionDescription(draft)).trim()}`);
-  if (draft.includedItems.value.trim() && draft.includedItems.confirmed) sections.push(`Included: ${draft.includedItems.value.trim()}.`);
-  const s = draft.shipping;
-  if (s.confirmed && s.whoPays === "local-pickup") sections.push("Local pickup.");
-  else if (s.confirmed && s.handlingDays.trim()) sections.push(`Ships within ${s.handlingDays.trim()} business day${s.handlingDays.trim() === "1" ? "" : "s"}${s.service.trim() ? ` via ${s.service.trim()}` : ""}.`);
+  const noun = itemNoun(draft);
+  const pairNoun = noun === "sneakers" || noun === "shoes";
+  const name = dedupe([v("brand"), v("model") || v("productType")].filter(Boolean)).join(" ");
+  const edition = v("edition");
+  const color = v("color");
+  const nounInName = noun !== "item" && name.toLowerCase().includes(noun.replace(/s$/, ""));
+  const colorText = color ? (draft.category === "footwear" || draft.category === "clothing" ? ` in the ${color} colorway` : ` in ${color}`) : "";
+  const editionText = edition && !name.toLowerCase().includes(edition.toLowerCase()) ? ` (${edition})` : "";
+  const intro = [`${name || "This item"}${editionText}${noun !== "item" && !nounInName ? ` ${noun}` : ""}${colorText}.`];
+  if (draft.category === "footwear" && /\blow\b/i.test(name)) intro.push("The low-top silhouette pairs easily with everyday casual outfits.");
+
+  // Buyers scan identity first, then fit: brand, model, color, size, then the rest.
+  const order: AttributeKey[] = ["brand", "model", "edition", "color", "size", "styleCode", "storage", "carrierLock", "functionalStatus", "subtype", "material", "dimensions", "measurements", "quantity"];
+  const rank = (k: AttributeKey) => (order.includes(k) ? order.indexOf(k) : order.length);
+  const details: [string, string][] = [];
+  for (const a of [...textAttributes(draft)].sort((x, y) => rank(x.key) - rank(y.key))) {
+    if (a.key === "productType" || a.key === "department") continue;
+    details.push(a.key === "size" ? ["Size", sizeLabel(draft)] : [a.label.replace(/ \/ .*$/, ""), a.value.trim()]);
+  }
+  const condition = conditionPhrase(draft);
+  if (condition) details.push(["Condition", condition]);
+  const c = draft.condition;
+  if (c.grade && c.grade !== "new" && c.defects.trim()) details.push(["Flaws", c.defects.trim().replace(/\.$/, "")]);
+
+  const sections = [intro.join(" ")];
+  if (details.length) sections.push(details.map(([k, val]) => `${k}: ${val}`).join("\n"));
+  const includedValue = draft.includedItems.value.trim();
+  const included = draft.includedItems.confirmed && includedValue && !/^item only$/i.test(includedValue) ? includedValue : "";
+  const subject = pairNoun ? `the ${noun}` : "the item";
+  sections.push(`${included ? `Includes ${included}.` : `Includes ${subject} shown in the photos.`} Please review the images to see the exact ${pairNoun ? "pair" : "item"} you'll receive.`);
   const text = sections.join("\n\n");
   const limit = marketplaces[marketplace].descriptionLimit;
   return limit && text.length > limit ? text.slice(0, limit - 1).replace(/\s+\S*$/, "") + "…" : text;
+}
+
+export type GeneratedTextField = "title" | "description" | "condition";
+
+/**
+ * Fingerprint of the confirmed facts a generated field depends on. If it changes after the text was
+ * written, the text is out of date (e.g. the seller corrected the size after generating).
+ */
+export function factsKey(draft: ListingDraft, field: GeneratedTextField) {
+  const c = draft.condition;
+  const condition = [c.grade, c.packaging, c.defects.trim(), c.noKnownDefects ? 1 : 0];
+  if (field === "condition") return JSON.stringify(condition);
+  const attrs = textAttributes(draft).map((a) => [a.key, a.value.trim()]);
+  const included = field === "description" && draft.includedItems.confirmed ? draft.includedItems.value.trim() : "";
+  return JSON.stringify([draft.marketplace, attrs, condition, included]);
+}
+
+/** Generated fields whose underlying facts changed since they were written. */
+export function staleFields(draft: ListingDraft): GeneratedTextField[] {
+  const from = draft.generatedFrom || {};
+  const text = { title: draft.title.value, description: draft.description.value, condition: draft.condition.description };
+  return (["title", "description", "condition"] as const).filter((f) => !!text[f].trim() && !!from[f] && from[f] !== factsKey(draft, f));
 }
 
 /** Practical, marketplace-specific advice derived from the draft. No price or demand claims. */

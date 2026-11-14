@@ -4,6 +4,7 @@ import { visibleConditionGroup } from "../pricing-engine";
 import { known, recognizableName, type FieldSources } from "../product-profile";
 import { attributeRules, listingCategory } from "./categories";
 import { conditionFit, summarizeEvidence, type MarketEvidence } from "./pricing";
+import { readSize } from "./sizing";
 import type {
   AttributeKey,
   ListingAttribute,
@@ -28,8 +29,13 @@ export function provenanceOf(source: Source | undefined, value: string): Provena
 const sameText = (a?: string | null, b?: string | null) =>
   (a || "").trim().toLowerCase().replace(/\s+/g, " ") === (b || "").trim().toLowerCase().replace(/\s+/g, " ");
 
-const departmentFor = (system: MatchDetails["sizeSystem"]) =>
-  system === "US Men" ? "Men" : system === "US Women" ? "Women" : system === "US Youth" ? "Youth" : "";
+/** Attributes that make up the item's identity, which the seller approves at "Confirm identification". */
+export const identityKeys: AttributeKey[] = ["brand", "model", "productType"];
+
+const fromReading = (value: string, from: string): { value: string; source: Provenance } =>
+  !value.trim()
+    ? { value: "", source: "missing" }
+    : { value: value.trim(), source: from === "details" ? "user-confirmed" : from === "seller-notes" ? "identified" : "ai-inferred" };
 
 /** Candidate value + provenance for each attribute, using only confirmed identification data and seller details. */
 export function attributeValue(
@@ -53,10 +59,16 @@ export function attributeValue(
       return fromField("model", i.model);
     case "color":
       return fromField("colorway", i.colorway);
-    case "size":
-      return user(d.size);
-    case "department":
-      return user(departmentFor(d.sizeSystem));
+    // Size and department are read from every place the seller stated them during identification:
+    // the size field (often typed as "Men's 10"), the sizing system and their notes.
+    case "size": {
+      const r = readSize(d, i.productName || i.model).size;
+      return fromReading(r.value, r.from);
+    }
+    case "department": {
+      const r = readSize(d, i.productName || i.model).department;
+      return fromReading(r.value, r.from);
+    }
     case "styleCode":
       if (d.productIdentifierVerified && d.productIdentifier.trim()) return user(d.productIdentifier);
       return fromField("identifyingInformation", i.identifyingInformation);
@@ -86,7 +98,10 @@ export function attributeValue(
 export function buildAttributes(category: ListingCategory, i: Identification, d: MatchDetails, sources: FieldSources): ListingAttribute[] {
   return attributeRules(category, i).map((rule) => {
     const { value, source } = attributeValue(rule.key, i, d, sources);
-    return { ...rule, value, source, confirmed: source === "user-confirmed" };
+    // The draft is only created from a confirmed identification, so the identity the seller approved
+    // there (brand, model, product) is not asked for again. Its provenance stays visible.
+    const approvedIdentity = identityKeys.includes(rule.key) && !!value && source === "ai-inferred";
+    return { ...rule, value, source, confirmed: source === "user-confirmed" || approvedIdentity, ...(approvedIdentity ? { confirmedVia: "identification" as const } : {}) };
   });
 }
 
@@ -165,7 +180,8 @@ export function createListingDraft(input: DraftInput): ListingDraft {
       descriptionSource: "empty",
       defects: "",
       noKnownDefects: false,
-      confirmed: false,
+      // A condition the seller picked during identification is already confirmed; an AI guess is not.
+      confirmed: condition.source === "user-confirmed",
     },
     includedItems: { value: accessories, source: accessoriesSource, confirmed: accessoriesSource === "user-confirmed" },
     title: { value: "", source: "empty", warnings: [] },
@@ -178,12 +194,36 @@ export function createListingDraft(input: DraftInput): ListingDraft {
   };
 }
 
+/**
+ * Bring a saved draft up to date without touching anything the seller entered or confirmed:
+ * fills size/department that older versions failed to read from the identification details, and
+ * records that the approved identity was confirmed at identification. Returns the same object when unchanged.
+ */
+export function upgradeDraft(draft: ListingDraft): ListingDraft {
+  let changed = false;
+  const attributes = draft.attributes.map((a) => {
+    if ((a.key === "size" || a.key === "department") && (a.source === "missing" || !a.value.trim())) {
+      const derived = attributeValue(a.key, draft.identification, draft.details, {});
+      if (derived.value) {
+        changed = true;
+        return { ...a, ...derived, confirmed: derived.source === "user-confirmed" };
+      }
+    }
+    if (identityKeys.includes(a.key) && a.source === "ai-inferred" && a.value.trim() && !a.confirmed && !a.confirmedVia) {
+      changed = true;
+      return { ...a, confirmed: true, confirmedVia: "identification" as const };
+    }
+    return a;
+  });
+  return changed ? { ...draft, attributes } : draft;
+}
+
 /** Seller edits an attribute: their value becomes user-confirmed. Clearing it makes it missing. */
 export function editAttribute(draft: ListingDraft, key: AttributeKey, value: string): ListingDraft {
   return {
     ...draft,
     attributes: draft.attributes.map((a) =>
-      a.key !== key ? a : { ...a, value, source: value.trim() ? "user-confirmed" : "missing", confirmed: !!value.trim() },
+      a.key !== key ? a : { ...a, value, source: value.trim() ? "user-confirmed" : "missing", confirmed: !!value.trim(), confirmedVia: undefined },
     ),
   };
 }

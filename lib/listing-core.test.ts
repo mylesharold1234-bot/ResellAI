@@ -80,8 +80,9 @@ test("draft reuses confirmed identification and records provenance; nothing is i
   const d = draftFor(ident(), details({ size: "10", sizeSystem: "US Men" }));
   const a = Object.fromEntries(d.attributes.map((x) => [x.key, x]));
   assert.equal(a.brand.source, "identified");
-  assert.equal(a.model.source, "ai-inferred");
-  assert.equal(a.model.confirmed, false);
+  assert.equal(a.model.source, "ai-inferred", "provenance stays visible");
+  assert.equal(a.model.confirmed, true, "the identity was approved at Confirm identification; it isn't asked again");
+  assert.equal(a.model.confirmedVia, "identification");
   assert.equal(a.size.value, "10");
   assert.equal(a.size.source, "user-confirmed");
   assert.equal(a.department.value, "Men");
@@ -106,7 +107,11 @@ test("readiness blocks on missing and AI-inferred required details, then clears"
   const r = assessListing(d);
   assert.equal(r.publishable, false);
   const ids = r.blockers.map((b) => b.id);
-  for (const id of ["attr-size", "attr-department", "attr-model", "condition-defects", "condition-confirmed", "title", "description", "price", "shipping"]) assert.ok(ids.includes(id), id);
+  for (const id of ["attr-size", "attr-department", "condition-grade", "condition-defects", "title", "description", "price"]) assert.ok(ids.includes(id), id);
+  // Not blockers any more: re-confirming the approved model, a separate "condition confirmed" tick, a hand-written
+  // condition note, and package details (eBay takes shipping from the seller's shipping policy).
+  for (const id of ["attr-model", "condition-confirmed", "condition-description", "shipping"]) assert.ok(!ids.includes(id), id);
+  assert.ok(r.blockers.every((b) => b.why && b.fix && b.basis), "every blocker explains why and how to fix it");
   const done = complete(d);
   assert.deepEqual(assessListing(done).blockers, []);
   assert.equal(assessListing(done).publishable, true);
@@ -214,7 +219,7 @@ test("regeneration changes only requested fields and preserves seller edits", ()
   const full = applyGenerated(d, gen, ["title", "description", "condition", "recommendations"]);
   assert.equal(full.title.value, "My own title Size 10", "full generation keeps user edits");
   assert.equal(full.description.value, "AI description");
-  assert.equal(full.condition.confirmed, false, "new condition text needs reconfirmation");
+  assert.equal(full.condition.confirmed, d.condition.confirmed, "rewriting the condition note doesn't undo the seller's condition check");
   const one = applyGenerated(d, gen, ["title"], { overwriteUserEdits: true });
   assert.equal(one.title.value, "AI title");
   assert.equal(one.description.value, d.description.value, "other fields untouched");
@@ -229,7 +234,9 @@ test("drafts round-trip through storage validation; exports respect marketplace 
   assert.deepEqual(parseDraft(JSON.parse(JSON.stringify(d))), d);
   assert.throws(() => parseDraft({ id: "x" }));
   const unconfirmed = draftFor(ident(), details({ size: "10", sizeSystem: "US Men" }));
-  assert.ok(!exportListing(unconfirmed).specifics.some(([k]) => k === "Model"), "unconfirmed AI-inferred specifics are not exported");
+  const withGuess = { ...unconfirmed, attributes: unconfirmed.attributes.map((x) => (x.key === "material" ? { ...x, value: "Leather", source: "ai-inferred" as const, confirmed: false } : x)) };
+  assert.ok(!exportListing(withGuess).specifics.some(([k]) => k === "Upper material"), "unconfirmed AI-inferred specifics are not exported");
+  assert.ok(exportListing(withGuess).specifics.some(([k]) => k === "Model"), "the identity approved at identification is exported");
   const e = exportListing(d, "mercari");
   assert.match(e.text, /^TITLE \(\d+\/80\)/);
   assert.match(e.condition, /Pre-owned/);

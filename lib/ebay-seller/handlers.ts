@@ -369,7 +369,10 @@ export function createSellerHandlers(deps: SellerDeps = {}) {
       } catch (e) {
         return failure(e, "Couldn't check eBay's requirements for this category.");
       }
-      const issues = ebayPublishIssues(draft, assessListing(draft, "ebay", now()), rules, { now: now() });
+      // A calculated-postage shipping policy makes package size an eBay requirement; check the chosen policy.
+      const policyId = draft.ebay.fulfillmentPolicyId.trim();
+      const policy = policyId ? await client.fulfillmentPolicy(policyId).catch(() => null) : null;
+      const issues = ebayPublishIssues(draft, assessListing(draft, "ebay", now()), rules, { now: now(), calculatedShipping: !!policy?.calculated });
       if (issues.length) return json({ error: "This listing isn't ready for eBay.", issues }, 422);
       const sku = skuForDraft(draft.id);
       try {

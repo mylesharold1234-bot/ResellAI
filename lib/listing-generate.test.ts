@@ -34,7 +34,9 @@ test("without an API key, a complete template listing is returned and no network
   assert.equal(listing.source, "template");
   assert.match(listing.title, /Nike Dunk Low/);
   assert.ok(!/Dunk Low Dunk/.test(listing.title));
-  assert.match(listing.description, /Item details/);
+  assert.match(listing.description, /^Nike Dunk Low sneakers in the White and black colorway\./);
+  assert.match(listing.description, /\nSize: US Men's 10\n/, "confirmed size and department appear together");
+  assert.ok(!/not specified|missing|unknown/i.test(listing.description), "no placeholder text");
   assert.match(listing.warnings[0], /OPENAI_API_KEY/);
 });
 
@@ -54,7 +56,9 @@ test("the model receives only confirmed/identified facts and no photos", async (
   assert.ok(!s.input.includes("data:image"), "no images re-sent");
   const facts = JSON.parse(s.input);
   assert.ok(facts.facts.some((f: { name: string }) => f.name === "Model"), "seller-approved identity can be named");
-  assert.ok(facts.missingDetails.includes("Style code / SKU"));
+  assert.equal(facts.missingDetails, undefined, "the model is never told what's missing, so it can't write it into the listing");
+  assert.ok(facts.facts.some((f: { name: string; value: string }) => f.name === "Size" && f.value === "US Men's 10"));
+  assert.ok(!facts.facts.some((f: { name: string }) => f.name === "Department"), "department is merged into size");
   // A non-identity AI inference (material read from the photo) stays out until the seller confirms it.
   const withMaterial = draft();
   withMaterial.attributes = withMaterial.attributes.map((a) => (a.key === "material" ? { ...a, value: "Leather", source: "ai-inferred" as const, confirmed: false } : a));

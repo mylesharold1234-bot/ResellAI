@@ -49,7 +49,7 @@ function EvidenceCard({ e, draft, onUse }: { e: PricingEvidenceSummary; draft: L
   );
 }
 
-export function ListingPricingSection({ draft, onChange }: { draft: ListingDraft; onChange: (pricing: ListingPricing) => void }) {
+export function ListingPricingSection({ draft, onChange, bare = false }: { draft: ListingDraft; onChange: (pricing: ListingPricing) => void; bare?: boolean }) {
   const p = draft.pricing;
   const set = (patch: Partial<ListingPricing>) => onChange({ ...p, ...patch });
   const result = listingProceeds(p, draft.category, draft.marketplace);
@@ -61,8 +61,8 @@ export function ListingPricingSection({ draft, onChange }: { draft: ListingDraft
     </label>
   );
   return (
-    <section className="listing-panel" id="pricing" aria-labelledby="pricing-h">
-      <h2 id="pricing-h">Price & profit</h2>
+    <section className={bare ? "lx-bare" : "listing-panel"} id={bare ? undefined : "pricing"} aria-labelledby={bare ? undefined : "pricing-h"}>
+      {!bare && <h2 id="pricing-h">Price & profit</h2>}
       <p className="panel-sub">Prices below come from current <b>asking</b> prices on active listings, not completed sales. ResellAI has no sold-price data, so treat them as a starting point.</p>
       <div className="evidence-cards">
         {p.evidence.map((e) => (

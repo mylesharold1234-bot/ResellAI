@@ -1,4 +1,4 @@
-import type { assessListing } from "../listing/readiness";
+import type { assessListing, ReadinessIssue } from "../listing/readiness";
 import { usableAttributes } from "../listing/template";
 import type { AttributeKey, ListingDraft } from "../listing/types";
 import type { AllowedCondition, CategoryAspect } from "./client";
@@ -75,7 +75,7 @@ const aspectNames: Partial<Record<AttributeKey, string[]>> = {
   styleCode: ["Style Code", "MPN"],
   material: ["Upper Material", "Material"],
   storage: ["Storage Capacity"],
-  productType: ["Type"],
+  // productType holds the product's name ("Nike Dunk Low"), not eBay's "Type" (e.g. "Athletic"), so it isn't mapped.
   edition: ["Edition", "Version"],
   subtype: ["Type"],
   carrierLock: ["Network", "Lock Status"],
@@ -142,9 +142,22 @@ export function photosNeedingUpload(draft: ListingDraft, environment: "productio
   });
 }
 
-export function buildInventoryItem(draft: ListingDraft, categoryAspects?: CategoryAspect[], now = Date.now()) {
+/** Package weight and dimensions, only when the seller entered them (needed for calculated shipping). */
+export function packageDetails(draft: ListingDraft) {
   const s = draft.shipping;
+  if (s.whoPays === "local-pickup") return null;
   const pounds = decimal(s.weightLb) + decimal(s.weightOz) / 16;
+  const dims = [s.length, s.width, s.height].map((v) => Number(v));
+  const hasDims = dims.every((n) => n > 0);
+  if (!(pounds > 0) && !hasDims) return null;
+  return {
+    ...(hasDims ? { dimensions: { length: dims[0], width: dims[1], height: dims[2], unit: "INCH" } } : {}),
+    ...(pounds > 0 ? { weight: { value: Math.round(pounds * 100) / 100, unit: "POUND" } } : {}),
+  };
+}
+
+export function buildInventoryItem(draft: ListingDraft, categoryAspects?: CategoryAspect[], now = Date.now()) {
+  const pkg = packageDetails(draft);
   const condition = ebayCondition(draft);
   return {
     availability: { shipToLocationAvailability: { quantity: 1 } },
@@ -156,14 +169,7 @@ export function buildInventoryItem(draft: ListingDraft, categoryAspects?: Catego
       aspects: buildAspects(draft, categoryAspects),
       imageUrls: listingImageUrls(draft, now),
     },
-    ...(s.whoPays !== "local-pickup" && pounds > 0
-      ? {
-          packageWeightAndSize: {
-            dimensions: { length: decimal(s.length), width: decimal(s.width), height: decimal(s.height), unit: "INCH" },
-            weight: { value: Math.round(pounds * 100) / 100, unit: "POUND" },
-          },
-        }
-      : {}),
+    ...(pkg ? { packageWeightAndSize: pkg } : {}),
   };
 }
 
@@ -187,30 +193,59 @@ export function buildOffer(draft: ListingDraft) {
 
 export type CategoryRules = { aspects?: CategoryAspect[]; conditions?: AllowedCondition[]; conditionRequired?: boolean };
 
+export type EbayCheckOptions = {
+  /** Browser only: selected photos will be uploaded to eBay as part of publishing. */
+  photosPending?: boolean;
+  /** The chosen shipping policy calculates postage from package size, so eBay needs weight and dimensions. */
+  calculatedShipping?: boolean;
+  now?: number;
+};
+
 /**
- * eBay-specific publishing requirements on top of general listing readiness.
- * `photosPending` lets the browser count photos that will be uploaded during publishing.
+ * eBay's own publishing requirements (on top of general listing readiness), each with the reason and inline fix.
+ * Every item here is required by the Inventory/Offer APIs or the category's rules; nothing is a ResellAI preference.
  */
-export function ebayPublishIssues(draft: ListingDraft, readiness: ReturnType<typeof assessListing>, rules: CategoryRules = {}, { photosPending = false, now = Date.now() } = {}) {
-  const issues: string[] = [];
-  if (draft.marketplace !== "ebay") issues.push("Select eBay as the marketplace.");
-  if (!readiness.publishable) issues.push(`Complete the ${readiness.blockers.length} listing item${readiness.blockers.length === 1 ? "" : "s"} in "Before you list".`);
-  if (!/^\d{1,10}$/.test(draft.ebay.categoryId.trim())) issues.push("Choose an eBay category.");
+export function ebayRequirements(draft: ListingDraft, rules: CategoryRules = {}, { photosPending = false, calculatedShipping = false, now = Date.now() }: EbayCheckOptions = {}): ReadinessIssue[] {
+  const issues: ReadinessIssue[] = [];
+  const add = (id: string, message: string, why: string, fix: string) => issues.push({ id, severity: "blocker", basis: "marketplace", message, why, fix, target: "ebay-settings" });
+  if (draft.marketplace !== "ebay") add("ebay-marketplace", "Select eBay as the marketplace.", "Direct publishing is available for eBay.", "marketplace");
+  if (!/^\d{1,10}$/.test(draft.ebay.categoryId.trim())) add("ebay-category", "Choose an eBay category.", "eBay files every listing under a category; it also decides the required item specifics.", "ebay-category");
   const conditionId = chosenConditionId(draft);
-  if (!conditionId || !conditionEnumById[conditionId]) issues.push("Choose an eBay condition.");
+  if (!conditionId || !conditionEnumById[conditionId]) add("ebay-condition", "Choose an eBay condition.", "eBay needs a condition from its own list.", "ebay-condition");
   else if (rules.conditions?.length && !rules.conditions.some((c) => c.id === conditionId))
-    issues.push("This eBay category doesn't accept the chosen condition. Pick one of the category's conditions.");
-  if (!draft.ebay.fulfillmentPolicyId || !draft.ebay.paymentPolicyId || !draft.ebay.returnPolicyId) issues.push("Choose or create shipping, payment and return policies.");
-  if (!draft.ebay.merchantLocationKey) issues.push("Choose or add the location the item ships from.");
+    add("ebay-condition", "This eBay category doesn't accept the chosen condition. Pick one of the category's conditions.", "Each eBay category allows only certain conditions.", "ebay-condition");
+  if (!draft.ebay.fulfillmentPolicyId || !draft.ebay.paymentPolicyId || !draft.ebay.returnPolicyId)
+    add("ebay-policies", "Choose or create shipping, payment and return policies.", "eBay takes shipping cost, payment and returns from your business policies.", "ebay-policies");
+  if (!draft.ebay.merchantLocationKey) add("ebay-location", "Choose or add the location the item ships from.", "eBay shows buyers where the item ships from.", "ebay-location");
   const urls = listingImageUrls(draft, now);
-  if (!urls.length && !(photosPending && draft.photos.some((p) => p.selected))) issues.push("Select at least one photo (or add a hosted image URL).");
-  if (draft.ebay.imageUrls.some((u) => { try { return new URL(u).protocol !== "https:"; } catch { return true; } })) issues.push("Every manual image URL must be a valid https:// address.");
-  if (draft.title.value.trim().length > 80) issues.push("eBay titles are limited to 80 characters.");
-  if (descriptionHtml(draft.description.value).length > EBAY_DESCRIPTION_LIMIT) issues.push(`Shorten the description: eBay allows ${EBAY_DESCRIPTION_LIMIT.toLocaleString()} characters including formatting.`);
-  if (draft.shipping.whoPays !== "local-pickup" && [draft.shipping.length, draft.shipping.width, draft.shipping.height].some((v) => !(Number(v) > 0)))
-    issues.push("Enter package length, width and height in inches.");
+  if (!urls.length && !(photosPending && draft.photos.some((p) => p.selected))) add("ebay-photos", "Select at least one photo (or add a hosted image URL).", "eBay requires at least one photo.", "photos");
+  if (draft.ebay.imageUrls.some((u) => { try { return new URL(u).protocol !== "https:"; } catch { return true; } }))
+    add("ebay-photo-urls", "Every manual image URL must be a valid https:// address.", "eBay only accepts secure image links.", "ebay-photo-urls");
+  if (draft.title.value.trim().length > 80) add("ebay-title-length", "eBay titles are limited to 80 characters.", "eBay rejects longer titles.", "title");
+  if (descriptionHtml(draft.description.value).length > EBAY_DESCRIPTION_LIMIT)
+    add("ebay-description-length", `Shorten the description: eBay allows ${EBAY_DESCRIPTION_LIMIT.toLocaleString()} characters including formatting.`, "eBay rejects longer descriptions.", "description");
+  if (calculatedShipping) {
+    const pkg = packageDetails(draft);
+    if (!pkg?.weight || !pkg?.dimensions)
+      add("ebay-package", "Enter the packed weight and box dimensions.", "Your shipping policy uses calculated postage, which eBay prices from package size.", "package");
+  }
   const aspects = buildAspects(draft, rules.aspects);
-  const missing = (rules.aspects || []).filter((a) => a.required && !aspects[a.name]).map((a) => a.name);
-  if (missing.length) issues.push(`eBay requires these item specifics for this category: ${missing.join(", ")}.`);
+  for (const a of (rules.aspects || []).filter((x) => x.required && !aspects[x.name]))
+    add(`ebay-aspect-${a.name}`, `Add "${a.name}" (eBay requires it for this category).`, `eBay won't publish in this category without ${a.name}.`, `ebay-aspect:${a.name}`);
   return issues;
+}
+
+/**
+ * Everything that blocks an eBay publish, as plain messages. Used by the server before any eBay write, so the
+ * final API publication is blocked by the same genuine requirements the browser shows.
+ */
+export function ebayPublishIssues(draft: ListingDraft, readiness: ReturnType<typeof assessListing>, rules: CategoryRules = {}, options: EbayCheckOptions = {}) {
+  const issues: string[] = [];
+  if (!readiness.publishable) issues.push(...readiness.blockers.map((b) => b.message));
+  const ebay = ebayRequirements(draft, rules, options).map((i) => i.message);
+  // eBay's aspect requirements are summarised as one line for API callers.
+  const aspectMissing = ebayRequirements(draft, rules, options).filter((i) => i.id.startsWith("ebay-aspect-")).map((i) => i.id.slice("ebay-aspect-".length));
+  issues.push(...ebay.filter((m) => !/^Add ".*" \(eBay requires it/.test(m)));
+  if (aspectMissing.length) issues.push(`eBay requires these item specifics for this category: ${aspectMissing.join(", ")}.`);
+  return [...new Set(issues)];
 }

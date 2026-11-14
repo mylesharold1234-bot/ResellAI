@@ -14,7 +14,11 @@ type Json = Record<string, unknown>;
 const obj = (v: unknown): v is Json => !!v && typeof v === "object" && !Array.isArray(v);
 const list = <T = Json>(json: unknown, key: string): T[] => (obj(json) && Array.isArray(json[key]) ? (json[key] as T[]) : []);
 
-export type CategoryAspect = { name: string; required: boolean; recommended: boolean; mode: string; values: string[]; multiple: boolean; maxLength: number | null };
+/** A fulfillment policy whose shipping options use CALCULATED cost needs package weight and dimensions on the item. */
+const usesCalculatedShipping = (policy: unknown) =>
+  list(policy, "shippingOptions").some((o) => String(o.costType || "").toUpperCase() === "CALCULATED");
+
+export type CategoryAspect ={ name: string; required: boolean; recommended: boolean; mode: string; values: string[]; multiple: boolean; maxLength: number | null };
 export type AllowedCondition = { id: string; name: string };
 export type ShippingServiceOption = { code: string; name: string; carrier: string; category: string };
 
@@ -86,10 +90,15 @@ export function createSellerClient({ endpoints, accessToken, fetcher = fetch }: 
     async policies() {
       const [f, p, r] = await Promise.all([call("GET", `/sell/account/v1/fulfillment_policy${q}`), call("GET", `/sell/account/v1/payment_policy${q}`), call("GET", `/sell/account/v1/return_policy${q}`)]);
       return {
-        fulfillment: list(f, "fulfillmentPolicies").map((x) => ({ id: String(x.fulfillmentPolicyId), name: String(x.name || x.fulfillmentPolicyId) })),
+        fulfillment: list(f, "fulfillmentPolicies").map((x) => ({ id: String(x.fulfillmentPolicyId), name: String(x.name || x.fulfillmentPolicyId), calculated: usesCalculatedShipping(x) })),
         payment: list(p, "paymentPolicies").map((x) => ({ id: String(x.paymentPolicyId), name: String(x.name || x.paymentPolicyId) })),
         return: list(r, "returnPolicies").map((x) => ({ id: String(x.returnPolicyId), name: String(x.name || x.returnPolicyId) })),
       };
+    },
+    /** One shipping policy, to check whether eBay needs package weight and size (calculated postage). */
+    async fulfillmentPolicy(id: string) {
+      const json = await call("GET", `/sell/account/v1/fulfillment_policy/${encodeURIComponent(id)}`, undefined, { allow404: true });
+      return json ? { id, calculated: usesCalculatedShipping(json) } : null;
     },
     async createPolicy(type: "fulfillment" | "payment" | "return", body: unknown) {
       const json = await call("POST", type === "fulfillment" ? "/sell/account/v1/fulfillment_policy/" : `/sell/account/v1/${type}_policy`, body);

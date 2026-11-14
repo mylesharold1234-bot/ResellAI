@@ -5,6 +5,7 @@ import { FilePenLine, Trash2 } from "lucide-react";
 import { useIdentification } from "../../components/identification-context";
 import { deleteDraft, getPhotos, listDrafts, storageIsPersistent } from "../../lib/listing/drafts-store";
 import { assessListing } from "../../lib/listing/readiness";
+import { upgradeDraft } from "../../lib/listing/draft";
 import { marketplaces } from "../../lib/listing/categories";
 import type { ListingDraft } from "../../lib/listing/types";
 
@@ -75,7 +76,7 @@ export default function ListingsPage() {
       )}
       <div className="draft-list block">
         {drafts?.map((d) => {
-          const r = assessListing(d);
+          const r = assessListing(upgradeDraft(d));
           const published = d.ebay.publish?.status === "published";
           return (
             <article className="draft-item" key={d.id}>

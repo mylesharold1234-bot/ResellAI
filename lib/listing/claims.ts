@@ -75,8 +75,14 @@ export function auditText(text: string, facts: ListingFacts): ClaimIssue[] {
   const newClaim = /\b(brand new|new with box|new with tags|new in box|nwt|nib|bnib|nwob|deadstock|unworn|never worn|never used|factory sealed|sealed)\b/.test(t) || /\bds\b/.test(t);
   if (newClaim && facts.grade !== "new")
     add("error", "condition-contradiction", "Describes the item as new or unused, but the confirmed condition is not new.");
-  if (/\b(flawless|perfect condition|no flaws|mint condition|no signs of wear)\b/.test(t) && (facts.defects || facts.grade !== "new"))
+  // Absolute claims ("flawless", "no flaws") overstate a used item. A hedged statement of what the seller knows
+  // ("no flaws known to the seller") is accurate when they confirmed none, and only contradicts listed flaws.
+  const hedged = /\bno (?:other |known |visible )?flaws (?:known|that (?:i|we) know|(?:i|we)(?:'m| am| are) aware)|\bno known flaws\b/;
+  const absolute = /\b(flawless|perfect condition|no flaws|mint condition|no signs of wear)\b/;
+  if (absolute.test(t.replace(new RegExp(hedged.source, "g"), "")) && (facts.defects || facts.grade !== "new"))
     add("error", "condition-overstated", "Overstates condition (e.g. flawless or mint) relative to the confirmed condition or listed flaws.");
+  else if (hedged.test(t) && facts.defects)
+    add("error", "condition-overstated", "Says there are no known flaws, but flaws are listed.");
 
   if (/\b(with (the )?(original )?box|original box|og box|og all|new in box|nib|bnib|comes with box|in box)\b/.test(t) && facts.packaging !== "original")
     add("error", "packaging", "Mentions the original box, but original packaging hasn't been confirmed.");
