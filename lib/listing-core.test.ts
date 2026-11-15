@@ -115,9 +115,13 @@ test("readiness blocks on missing and AI-inferred required details, then clears"
   const done = complete(d);
   assert.deepEqual(assessListing(done).blockers, []);
   assert.equal(assessListing(done).publishable, true);
-  // Facebook local pickup does not need package details.
-  const local = { ...done, marketplace: "facebook" as const, shipping: { ...done.shipping, weightLb: "", whoPays: "local-pickup" as const, confirmed: false } };
+  // Local pickup on another marketplace does not need package details.
+  const local = { ...done, marketplace: "other" as const, shipping: { ...done.shipping, weightLb: "", whoPays: "local-pickup" as const, confirmed: false } };
   assert.equal(assessListing(local).publishable, true);
+  // Drafts saved while Facebook Marketplace was offered still open, unchanged except for the marketplace.
+  const legacy = parseDraft(JSON.parse(JSON.stringify({ ...done, marketplace: "facebook" })));
+  assert.equal(legacy.marketplace, "other");
+  assert.deepEqual({ ...legacy, marketplace: done.marketplace }, JSON.parse(JSON.stringify(done)));
 });
 
 test("electronics require functional status, carrier lock (phones) and included items", () => {
@@ -148,7 +152,7 @@ test("templates use only confirmed facts, fit marketplace limits and pass the au
   const long = complete(draftFor(ident({ model: "Dunk Low Retro Premium Special Edition Collaboration", colorway: "White black university red sail grey" }), details({ size: "10", sizeSystem: "US Men", variant: "Special Edition Collaboration 2024 Release Pack" })));
   assert.ok(buildTitle(long).length <= 80);
   assert.ok(buildTitle(long).includes("Size 10"), "size outranks color when space is short");
-  assert.ok(buildTitle(long, "facebook").length <= 100);
+  assert.ok(buildTitle(long, "other").length <= 80);
   const facts = listingFacts(d);
   assert.deepEqual(auditText(buildTitle(d), facts), []);
   assert.deepEqual(auditText(buildDescription(d), facts), []);

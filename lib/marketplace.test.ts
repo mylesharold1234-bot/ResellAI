@@ -485,10 +485,10 @@ test("live report with no confirmed item never shows a demo product or price", (
       children: createElement(LiveReport),
     }),
   );
-  assert.match(html, /Confirm an item/);
+  assert.match(html, /No item yet/);
   assert.ok(!html.includes("Nike Dunk"));
   assert.ok(!html.includes("$85"));
-  assert.match(html, /No fictional prices/);
+  assert.doesNotMatch(html, /Suggested asking price/);
 });
 
 test("matching details survive confirmation and are cleared for a different photo", async () => {

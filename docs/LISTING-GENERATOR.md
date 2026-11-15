@@ -150,7 +150,7 @@ Downloaded from developer.ebay.com on 2026-11-13: the OpenAPI contracts for Sell
 The overrides are ignored when `EBAY_SELLER_ENVIRONMENT=production`. To mimic the tunnel, start the simulator with `MOCK_EBAY_CALLBACK=http://127.0.0.1:3001/api/ebay/seller/callback` and `MOCK_EBAY_DECLINED=http://127.0.0.1:3001/api/ebay/seller/declined` while you browse at `http://localhost:3001`.
 
 ## Other marketplaces
-Mercari, Facebook Marketplace and others get **copy/export**: per-field copy buttons, "Copy everything" and a `.txt` download, with marketplace-specific title/description limits and condition hints. There is no automation or browser scripting of these sites.
+Mercari and other marketplaces get **copy/export**: per-field copy buttons, "Copy everything" and a `.txt` download, with marketplace-specific title/description limits and condition hints. There is no automation or browser scripting of these sites.
 
 ## Tests
 - `lib/listing-core.test.ts` (12): categories, provenance, readiness, claim audit, templates, evidence summary, condition fit, proceeds/fees, regeneration merge, draft validation, export.

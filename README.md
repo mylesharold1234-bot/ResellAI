@@ -69,17 +69,13 @@ For the black-and-white Jordan test, upload the actual shoe, confirm Jordan / li
 
 Shared UI and responsive card styling are preserved. `lib/identification*` owns Phase 2 validation/workflow, `lib/identify-server.ts` calls OpenAI, and React context carries photos and identity across routes. `lib/marketplace-providers/ebay.ts` owns authorized Browse retrieval, OAuth/cache/rate limits; `lib/product-matching.ts`, `lib/valuation.ts` and `lib/ebay-fees.ts` keep matching, statistics and documented fee calculations deterministic. `components/live-report.tsx` and `components/demo-report.tsx` separate live evidence from fictional examples.
 
-No new dependencies, direct scraping, marketplace purchases, paid service purchases, sold-data claims or forecasts were added. A Social Fetch Facebook adapter is prepared but disabled pending permitted-use verification; Mercari remains unimplemented. Public deployment needs authentication, centralized abuse controls/quotas, and eBay's approval of the application/use and data-display terms. The current local cache is five minutes, bounded and in-memory; no price history is accumulated. Next.js may emit a nonblocking workspace-root warning because both this app and its parent have lockfiles.
+No new dependencies, direct scraping, marketplace purchases, paid service purchases, sold-data claims or forecasts were added.  Mercari remains unimplemented. Public deployment needs authentication, centralized abuse controls/quotas, and eBay's approval of the application/use and data-display terms. The current local cache is five minutes, bounded and in-memory; no price history is accumulated. Next.js may emit a nonblocking workspace-root warning because both this app and its parent have lockfiles.
 
-Next steps require your credentials/permissions first. Facebook was subsequently requested and is prepared behind a disabled permission gate; Mercari and forecasting remain out of scope. Future accounts/storage/PWA work remains separate.
+Next steps require your credentials/permissions first. Mercari and forecasting remain out of scope. Future accounts/storage/PWA work remains separate.
 
 
 
-## Facebook Marketplace through Social Fetch
+## Facebook Marketplace (removed)
 
-A Facebook section has been added to the confirmed-item report while preserving eBay and the existing design. It remains disabled because public documentation did not establish the required source collection and downstream rights. No Social Fetch credits were spent and no genuine listing retrieval is claimed. Read [Social Fetch setup, permission verification and testing](docs/SOCIAL-FETCH.md).
-
-`SOCIAL_FETCH_API_KEY` is read only on the server. The current server reports it is not configured: check the exact `resellai/.env.local` file and restart. Do not paste the key in chat. Setting a key alone does not enable provider requests; do not change the permission gate until actual permitted use is verified.
-
-Location/radius selection, server-side search/header auth, conservative active-listing normalization, observed asking statistics, explicit confirmation/update triggers, duplicate-request protection, hourly limits and optional AI commentary are implemented. Estimated selling-price ranges remain unavailable without sold evidence or a justified model. All Facebook tests use mock fixtures until permission and live access can be tested.
+Facebook Marketplace and the Social Fetch adapter were removed on 2026-11-14. ResellAI supports eBay (pricing and Sandbox publishing) and Mercari (pricing and copy/export). Drafts saved with Facebook selected open as "Other marketplace" with every field preserved. `SOCIAL_FETCH_*` settings are no longer read.
 

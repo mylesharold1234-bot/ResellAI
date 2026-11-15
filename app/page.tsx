@@ -1,140 +1,63 @@
 import Link from "next/link";
-import {
-  ArrowUpRight,
-  Camera,
-  ChartNoAxesCombined,
-  Sparkles,
-  Check,
-  ArrowRight,
-} from "lucide-react";
-import { Action } from "../components/ui";
-import { ProductImage } from "../components/product-image";
+import { ArrowRight, Camera, CheckCircle2, ShieldCheck, Sparkles, Tag } from "lucide-react";
+
+const steps = [
+  { icon: Camera, title: "Snap a photo", text: "ResellAI recognizes the brand, model and details for you." },
+  { icon: Tag, title: "See what it's worth", text: "We compare current eBay and Mercari listings and suggest an asking price." },
+  { icon: Sparkles, title: "Review and publish", text: "Your listing is written and ready. Check it, then publish to eBay." },
+];
+
 export default function Home() {
   return (
     <>
-      <section className="hero wrap">
-        <div className="hero-copy">
-          <div className="eyebrow">
-            <span className="dot" /> A smarter way to resell
-          </div>
-          <h1>
-            Snap it.
-            <br />
-            Price it.
-            <br />
-            <span>Sell it.</span>
-          </h1>
-          <p className="lead">
-            Upload a photo and discover what your item is worth, where to sell
-            it, and when to sell for the best return.
-          </p>
+      <section className="wrap home-hero">
+        <div className="home-copy">
+          <span className="pill">For resellers and everyday sellers</span>
+          <h1 className="home-title">Turn a photo into a listing.</h1>
+          <p className="lead">Snap your item, see what it&apos;s worth, and get a polished listing written for you. You only review and publish.</p>
           <div className="actions">
-            <Action />
-            <Link href="/analysis?demo=1" className="text-link">
-              Explore a demo <ArrowUpRight size={17} />
+            <Link className="button" href="/analyze">
+              Start with a photo <ArrowRight size={17} aria-hidden="true" />
             </Link>
+            <Link className="secondary" href="/analysis?demo=1">See an example</Link>
           </div>
-          <p className="fine">
-            <Check size={15} /> No account needed <span>·</span> API key
-            required for AI
-          </p>
+          <ul className="home-trust" aria-label="How ResellAI works">
+            <li><CheckCircle2 size={16} aria-hidden="true" /> Nothing is published until you review it</li>
+            <li><ShieldCheck size={16} aria-hidden="true" /> Listings use only details you confirmed</li>
+          </ul>
         </div>
-        <div className="hero-visual">
-          <div className="orbit orbit-one" />
-          <div className="orbit orbit-two" />
-          <div className="floating-tag">
-            <Sparkles size={16} /> A little clarity. A lot of potential.
-          </div>
-          <div className="product-card">
-            <div className="row">
-              <span className="pill">EXAMPLE ANALYSIS</span>
-              <span className="muted">01 / SNEAKERS</span>
+
+        <div className="home-preview" aria-hidden="true">
+          <div className="home-preview-card">
+            <div className="home-preview-media">
+              <div className="home-shoe" />
             </div>
-            <ProductImage />
-            <div className="row">
-              <div>
-                <h3>Nike Dunk Low</h3>
-                <p className="muted">Retro · White / Black</p>
+            <div className="home-preview-body">
+              <span className="home-preview-label">Listing ready to review</span>
+              <p className="home-preview-title">Nike Dunk Low Black / White Men&apos;s Size 10 New with Box</p>
+              <p className="home-preview-price">$98</p>
+              <div className="home-preview-chips">
+                <span>Nike</span><span>Dunk Low</span><span>US Men&apos;s 10</span><span>New</span>
               </div>
-              <span className="condition">Good condition</span>
-            </div>
-            <div className="value-row">
-              <div>
-                <span className="muted">Illustrative resale value</span>
-                <strong>$85 – $115</strong>
-              </div>
-              <span className="mini-chart">▁▃▂▅▄▆</span>
-            </div>
-            <Link href="/analysis?demo=1" className="card-link">
-              View example report <ArrowRight size={17} />
-            </Link>
-          </div>
-          <div className="float-note">
-            <span className="check-circle">
-              <Check size={18} />
-            </span>
-            <div>
-              <strong>Potential, uncovered.</strong>
-              <small>Demo data · not a market valuation</small>
+              <div className="home-preview-button">Review &amp; Publish</div>
             </div>
           </div>
+          <p className="home-preview-note">Example listing</p>
         </div>
       </section>
-      <section className="category-strip wrap">
-        <span>ONE ASSISTANT. ENDLESS POSSIBILITIES.</span>
-        <div>
-          Sneakers <b>✳</b> Electronics <b>✳</b> Clothing <b>✳</b> Collectibles{" "}
-          <b>✳</b> And more
-        </div>
-      </section>
-      <section className="section wrap">
-        <div className="section-heading">
-          <div>
-            <div className="eyebrow">FROM PHOTO TO POSSIBILITY</div>
-            <h2>Your next sale starts here.</h2>
-          </div>
-          <p>
-            Less time researching.
-            <br />
-            More time making your next move.
-          </p>
-        </div>
-        <div className="three-grid">
-          {[
-            {
-              icon: Camera,
-              n: "01",
-              title: "Start with a snapshot",
-              text: "Upload a photo or use your camera. A simple first step for anything you want to sell.",
-            },
-            {
-              icon: Sparkles,
-              n: "02",
-              title: "Understand its identity",
-              text: "Review AI identification, add details, and correct anything that needs a closer look.",
-            },
-            {
-              icon: ChartNoAxesCombined,
-              n: "03",
-              title: "Explore your next move",
-              text: "Try the profit calculator and explore a clearly labeled demo pricing report.",
-            },
-          ].map((x) => (
-            <article className="feature" key={x.n}>
-              <div className="row">
-                <x.icon size={25} />
-                <span>{x.n}</span>
-              </div>
-              <h3>{x.title}</h3>
-              <p>{x.text}</p>
-            </article>
+
+      <section className="wrap home-steps" aria-labelledby="how">
+        <h2 id="how" className="sr-only">How it works</h2>
+        <ol>
+          {steps.map((s, i) => (
+            <li key={s.title}>
+              <span className="home-step-num">{i + 1}</span>
+              <s.icon size={20} aria-hidden="true" />
+              <h3>{s.title}</h3>
+              <p>{s.text}</p>
+            </li>
           ))}
-        </div>
-        <div className="phase-note">
-          You’re exploring an early prototype. AI identification requires a
-          configured API key. eBay asking-price evidence requires authorized
-          developer access.
-        </div>
+        </ol>
       </section>
     </>
   );

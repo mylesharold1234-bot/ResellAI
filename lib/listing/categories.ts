@@ -125,6 +125,5 @@ export type MarketplaceProfile = {
 export const marketplaces: Record<ListingMarketplace, MarketplaceProfile> = {
   ebay: { id: "ebay", label: "eBay", titleLimit: 80, descriptionLimit: null, directPublish: true, requiresShipping: true, limitNote: "eBay titles are limited to 80 characters." },
   mercari: { id: "mercari", label: "Mercari", titleLimit: 80, descriptionLimit: 1000, directPublish: false, requiresShipping: true, limitNote: "Kept to 80-character titles and 1,000-character descriptions; confirm current limits in the Mercari app." },
-  facebook: { id: "facebook", label: "Facebook Marketplace", titleLimit: 100, descriptionLimit: null, directPublish: false, requiresShipping: false, limitNote: "Short, clear titles work best; local pickup does not need package details." },
-  other: { id: "other", label: "Other marketplace", titleLimit: 80, descriptionLimit: null, directPublish: false, requiresShipping: false, limitNote: "Generic export; check the destination marketplace's limits." },
+  other: { id: "other", label: "Other marketplace", titleLimit: 80, descriptionLimit: null, directPublish: false, requiresShipping: false, limitNote: "Copy this listing anywhere else you sell. Check that marketplace's limits." },
 };

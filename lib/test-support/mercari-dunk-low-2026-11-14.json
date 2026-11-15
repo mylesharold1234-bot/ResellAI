@@ -1,0 +1,766 @@
+{
+ "note": "Public listing titles, asking prices and condition grades from a 2026-11-14 Mercari search for \"nike dunk low black white\" (100 results). Seller IDs and URLs removed.",
+ "query": "nike dunk low black white",
+ "retrievedAt": "2026-11-14T17:27:49.893Z",
+ "expiresAt": "2026-11-15T05:00:00.000Z",
+ "identification": {
+  "brand": "Nike",
+  "productName": "Nike Dunk Low Sneakers",
+  "category": "Sneakers",
+  "model": "Dunk Low",
+  "colorway": "Black and White",
+  "visibleCondition": "New or very lightly worn",
+  "identifyingInformation": null,
+  "confidence": "high",
+  "uncertainties": [
+   "Exact official colorway name not confirmed, common informal names include 'Panda' or 'Black White'"
+  ],
+  "additionalEvidence": [
+   "Photos of tongue label, insole, and outsole might confirm exact model and colorway",
+   "Close-up of any SKU or tag would assist in precise identification"
+  ],
+  "understanding": {
+   "candidates": [
+    {
+     "model": "Dunk Low",
+     "variant": "Panda Black White",
+     "basis": "Collaborative inference from silhouette, color blocking, and common naming of colors in this style"
+    },
+    {
+     "model": "Dunk Low",
+     "variant": null,
+     "basis": "Silhouette matches Nike Dunk Low style with black and white color blocking, a common way to describe this colorway"
+    },
+    {
+     "model": "Dunk Low",
+     "variant": "Black White",
+     "basis": "Silhouette and color blocking consistent with Nike Dunk Low in black and white variants"
+    }
+   ],
+   "primaryProduct": "Dunk Low",
+   "subtype": "Sneakers",
+   "describedCondition": null,
+   "includedAccessories": [],
+   "conflicts": [],
+   "modelSupport": "inferred",
+   "evidence": [
+    {
+     "field": "brand",
+     "value": "Nike",
+     "source": "ai-inferred"
+    },
+    {
+     "field": "model",
+     "value": "Dunk Low",
+     "source": "ai-inferred"
+    },
+    {
+     "field": "colorway",
+     "value": "Black and White",
+     "source": "image-visible"
+    },
+    {
+     "field": "colorPlacement",
+     "value": "Black overlays and Nike Swoosh, white base with perforations on toe box",
+     "source": "image-visible"
+    },
+    {
+     "field": "category",
+     "value": "Sneakers",
+     "source": "ai-inferred"
+    },
+    {
+     "field": "materials",
+     "value": "Leather upper (inferred from gloss and texture)",
+     "source": "ai-inferred"
+    },
+    {
+     "field": "visibleCondition",
+     "value": "New or very lightly worn, no visible damage or dirt",
+     "source": "image-visible"
+    }
+   ]
+  }
+ },
+ "listings": [
+  {
+   "title": "Nike Dunk Low Black and White Sneakers",
+   "price": 40,
+   "condition": "Like New",
+   "conditionId": "2990",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Black White Sneakers",
+   "price": 69,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Retro Black White “Panda”",
+   "price": 68.64,
+   "condition": "New",
+   "conditionId": "1000",
+   "shipping": null
+  },
+  {
+   "title": "Nike dunk low black and white pandas",
+   "price": 30,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Retro Black White",
+   "price": 36.12,
+   "condition": "New",
+   "conditionId": "1000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Black White Kids Shoes (Please read description)",
+   "price": 13.74,
+   "condition": "Fair",
+   "conditionId": "5000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Pandas Low Black White",
+   "price": 26.6,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Black White Fashion Sneakers",
+   "price": 30,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Panda Women’s 11 Black White Sneakers DD1503-101",
+   "price": 35,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Black and White Kids Shoes",
+   "price": 25,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low White/Black-White Women's 8.5",
+   "price": 70,
+   "condition": "New",
+   "conditionId": "1000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Panda Shoes Youth Size 5.5",
+   "price": 55,
+   "condition": "New",
+   "conditionId": "1000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Black White Men's Sneakers",
+   "price": 35,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Pandas - Women’s 8.5",
+   "price": 39,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Toddler Shoes Black White",
+   "price": 20,
+   "condition": "Like New",
+   "conditionId": "2990",
+   "shipping": null
+  },
+  {
+   "title": "Nike Men's Dunk Low Black and White Sneakers, Size 11.5",
+   "price": 40,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Black/White Panda Sneakers/Shoes 6.5",
+   "price": 25,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Retro White Black 'Panda' DD1391-100 Men's Sizes 4/4.5/5/5.5 New",
+   "price": 57,
+   "condition": "New",
+   "conditionId": "1000",
+   "shipping": null
+  },
+  {
+   "title": "Nike SB Dunk Low Pro Black White Skate Shoes",
+   "price": 50,
+   "condition": "Fair",
+   "conditionId": "5000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low kids size 4.5 Y",
+   "price": 60,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Black White Fashion Sneakers",
+   "price": 25,
+   "condition": "Fair",
+   "conditionId": "5000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Panda Black White Sneakers - Women's size 6.5",
+   "price": 40,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Black White Sneakers size 5Y / 6.5 women’s",
+   "price": 40,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low White Black Panda GS Youth Size 3.5 Shoes USED",
+   "price": 7.89,
+   "condition": "Fair",
+   "conditionId": "5000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Black White Youth Athletic Shoes",
+   "price": 36,
+   "condition": "Like New",
+   "conditionId": "2990",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Black White Men's Fashion Sneakers size 9",
+   "price": 44.41,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low TD Shoes Black White 11.5c",
+   "price": 30,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Panda White Black Women’s Size 5.5 (DD1503-101)",
+   "price": 40,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Retro \"Panda\" (Black / White)",
+   "price": 40.61,
+   "condition": "Fair",
+   "conditionId": "5000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Toddler Black/White Sneakers Size 11C",
+   "price": 36,
+   "condition": "Like New",
+   "conditionId": "2990",
+   "shipping": null
+  },
+  {
+   "title": "sz 10.5 Nike SB Dunk Low Black White",
+   "price": 41.55,
+   "condition": "Fair",
+   "conditionId": "5000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Retro Black White Men'sNike Dunk Low Retro Black White Men's Shoes",
+   "price": 85,
+   "condition": "Like New",
+   "conditionId": "2990",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low GS Black White Kids Shoes Mens 1.5Y Womens 3,0",
+   "price": 40,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Black White Panda",
+   "price": 31.34,
+   "condition": "Like New",
+   "conditionId": "2990",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Black White Kids Shoes",
+   "price": 42.5,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Retro Panda Black White Men's Size 15",
+   "price": 95,
+   "condition": "New",
+   "conditionId": "1000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Retro 'Panda' sneakers black/white 7",
+   "price": 19.29,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "New Nike Dunk Low 1 sneakers black and white",
+   "price": 79.31,
+   "condition": "New",
+   "conditionId": "1000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low White Black Fashion Sneakers",
+   "price": 24.22,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Kids White Black Purple Athletic Sneakers, Size 4Y.",
+   "price": 13.3,
+   "condition": "Fair",
+   "conditionId": "5000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Grey Black White",
+   "price": 32,
+   "condition": "Fair",
+   "conditionId": "5000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk low retro black / white Panda",
+   "price": 122,
+   "condition": "New",
+   "conditionId": "1000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low PS Panda 2Y White Black IU7765-100. New in Box Preschool",
+   "price": 34.91,
+   "condition": "New",
+   "conditionId": "1000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low White Black Panda Kids Shoes",
+   "price": 60,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Toddler Shoes Black White",
+   "price": 30,
+   "condition": "Like New",
+   "conditionId": "2990",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Black White Kids Shoes",
+   "price": 34.72,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Black White Shoes",
+   "price": 45,
+   "condition": "Like New",
+   "conditionId": "2990",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Black White Men's Shoes",
+   "price": 63,
+   "condition": "Like New",
+   "conditionId": "2990",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Black White Men's Fashion Sneakers",
+   "price": 100,
+   "condition": "New",
+   "conditionId": "1000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Panda Black White Sneakers",
+   "price": 65,
+   "condition": "New",
+   "conditionId": "1000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Black White Panda Kids Sneakers Size 12C Lace Up Shoes",
+   "price": 33,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low White Black women’s size 8 with box",
+   "price": 38.67,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk SB Low Black Grey White Men's Fashion Sneakers",
+   "price": 65,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Black White Sneakers",
+   "price": 30,
+   "condition": "Fair",
+   "conditionId": "5000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Panda Black White Women’s Sneakers US Size 7 DD1503-101",
+   "price": 45,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Retro Panda Black White DD1391-100 Sneakers Men’s 8.5 Women’s 10",
+   "price": 51.44,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Black White Fashion Sneakers",
+   "price": 45,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Supreme x Nike SB Dunk Low Pro Stars Black/White Sneakers",
+   "price": 104.78,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low GS Black White Panda” Size 5Y / Women’s 6.5",
+   "price": 36,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low White Black Fashion Sneakers",
+   "price": 25,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Panda size 5Y",
+   "price": 15,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Panda Black White Sneakers size 3Y Junior",
+   "price": 27.2,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Retro Panda Black White Men's Shoes Size 11",
+   "price": 29.78,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Panda Black White DD1503-101 Size 5.5Y Women’s 7 Sneakers",
+   "price": 58.66,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "NEW Nike Dunk Low Retro 'Black/White Panda' DD1391-100 (Men’s Size 10.5)",
+   "price": 78,
+   "condition": "New",
+   "conditionId": "1000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Black and White Sneakers women’s 8.5 pandas",
+   "price": 47.5,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Black White Men's Fashion Sneakers 10.5",
+   "price": 52.2,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Retro Black White Panda Big Kids Size US 6Y/Womens 7.5/8 CW1590100",
+   "price": 35.82,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low GS White Black “Panda” 6.5Y – Lightly Used – Classic Colorway",
+   "price": 47.14,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Retro Black White Panda",
+   "price": 51,
+   "condition": "New",
+   "conditionId": "1000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk LowGrade School Nike Dunk Low -Black  University FV0373-001 4.5y new",
+   "price": 64.31,
+   "condition": "Like New",
+   "conditionId": "2990",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Retro Panda Black White Men’s Size 10 DD1391-100 Sneakers",
+   "price": 45,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "(0300) Nike Dunk Low Pro SB Black White Gum - Size 11M/12.5W (HF3704-003)",
+   "price": 139.99,
+   "condition": "New",
+   "conditionId": "1000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Toddler Shoes Black White",
+   "price": 33.25,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low SE (GS) 6y or 7.5 women",
+   "price": 70,
+   "condition": "Like New",
+   "conditionId": "2990",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Black White Fashion Sneakers",
+   "price": 27.19,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Panda Black White Toddler Sneakers Size 10C",
+   "price": 21.43,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Panda Black White Men's Fashion Sneakers",
+   "price": 90,
+   "condition": "New",
+   "conditionId": "1000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Black White Men's Fashion Sneakers",
+   "price": 57,
+   "condition": "Like New",
+   "conditionId": "2990",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low GS Black Panda Sneakers DH9765-002 Youth Size 5Y / Women's 6.5",
+   "price": 72,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low TD Panda Black White Kids Size 7C CW1589-100",
+   "price": 20,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Black White Retro Women's Shoes DD1503101 Sz 8",
+   "price": 27.7,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Toddler Shoes Black White 7c",
+   "price": 6,
+   "condition": "Fair",
+   "conditionId": "5000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Black White Panda Women’s Size 7",
+   "price": 49,
+   "condition": "Fair",
+   "conditionId": "5000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Toddler Shoes Black White",
+   "price": 21,
+   "condition": "Fair",
+   "conditionId": "5000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Black White youth Athletic Shoes",
+   "price": 21.07,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Retro",
+   "price": 50,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Black and White Toddler Shoes 10C",
+   "price": 30,
+   "condition": "Like New",
+   "conditionId": "2990",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Retro “Panda” Black White Sneakers – Men’s Size 10",
+   "price": 28.5,
+   "condition": "Fair",
+   "conditionId": "5000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Black and White Sneakers 8w",
+   "price": 19,
+   "condition": "Fair",
+   "conditionId": "5000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Retro Panda Black White Men's Shoes",
+   "price": 47.5,
+   "condition": "Fair",
+   "conditionId": "5000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low GS Panda Black White CW1590-100 Size 7Y Womens 8.5 Sneakers⁠",
+   "price": 47,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Panda Black White Shoes Size 6",
+   "price": 15.5,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low",
+   "price": 27.07,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Black White",
+   "price": 30.4,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Black White Men's Fashion Sneakers",
+   "price": 31.32,
+   "condition": "Fair",
+   "conditionId": "5000",
+   "shipping": null
+  },
+  {
+   "title": "Nike Dunk Low Black White Panda Sneakers size 13",
+   "price": 38,
+   "condition": "Good",
+   "conditionId": "3000",
+   "shipping": null
+  }
+ ]
+}

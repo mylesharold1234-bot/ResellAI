@@ -26,6 +26,21 @@ export function matchMercari(item:Comparable,query:ProductQuery){
     return related("conflicting_colorway");
   if(/\bjordan 1\b/.test(wanted)&&!query.details.variant&&!query.details.productIdentifierVerified&&!jordanEdition(query.identification)&&
     /\b(?:se|craft|flyease|zoom|cmft|utility|homage|split|patent)\b/.test(title))return related("distinct_edition_unconfirmed");
+  // Nike SB Dunks are a separate skateboarding line with different releases and prices (seen in a Dunk Low
+  // snapshot: "Dunk Low Pro SB Black White Gum", HF3704-003, matched as close to a regular Dunk Low).
+  if(/\bdunk\b/.test(wanted)&&/\b(?:sb|pro sb)\b/.test(title)&&!/\bsb\b/.test(wanted))return related("distinct_edition_unconfirmed");
+  // A listing offering several sizes ("Men's Sizes 4/4.5/5/5.5", "sizes 7-10") doesn't say which pair the
+  // price applies to, so it can't price one specific pair.
+  if(multipleSizesListed(item.title))return related("multiple_sizes_listed");
  }
  return match;
+}
+
+/** "Sizes 4/4.5/5", "size 7-10", "7, 8, 9" — but not a single pair's men/women conversion like "11M/12.5W". */
+export function multipleSizesListed(rawTitle:string){
+ const t=rawTitle.toLowerCase();
+ if(/\bsizes\b/.test(t))return true;
+ if(/\b\d{1,2}(?:\.5)?\s*\/\s*\d{1,2}(?:\.5)?\s*\/\s*\d{1,2}(?:\.5)?\b/.test(t))return true;
+ if(/\bsize\s*\d{1,2}(?:\.5)?\s*(?:-|–|to)\s*\d{1,2}(?:\.5)?\b/.test(t))return true;
+ return false;
 }

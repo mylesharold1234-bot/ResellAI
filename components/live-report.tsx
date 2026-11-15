@@ -1,19 +1,17 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, ShieldCheck } from "lucide-react";
 import { useIdentification } from "./identification-context";
-import { ReportItem } from "./report-item";
 import { MatchDetailsFields } from "./match-details-fields";
-import { FacebookMarketplaceSection } from "./facebook-marketplace-section";
 import { EbayProceeds } from "./ebay-proceeds";
 import { parseMatchDetails, type MarketplaceResult } from "../lib/marketplaces";
 import {RetrievalDiagnostics} from "./retrieval-diagnostics";
-import {PricingPanel} from "./pricing-panel";
+import {PricingPanel,supportedPrice,dollars} from "./pricing-panel";
+import { useDebugView } from "./ui";
 import {EbayAIReview} from "./ebay-ai-review";
 import {listingDisplayPrice} from "../lib/pricing-engine";
 import type { recommend } from "../lib/valuation";
-import { loadingMessages, SkeletonLines } from "./request-loading";
+import { loadingMessages } from "./request-loading";
 import { useRequest } from "./use-request";
 import { MarketplaceComparison, MarketplaceProfit } from "./marketplace-intelligence";
 import type {PricingEvidence} from "../lib/pricing-intelligence";
@@ -24,13 +22,6 @@ type ReportData = {
   recommendation: ReturnType<typeof recommend>;
   snapshot?:{version:string;updatedAt:string;persisted?:boolean};
 };
-const dollars = (v: number | null | undefined) =>
-  v === null || v === undefined
-    ? "Unavailable"
-    : new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
-      }).format(v);
 export function LiveReport() {
   const { state, dispatch } = useIdentification();
   const [lastSuccessfulKey, setLastSuccessfulKey] = useState<string | null>(null);
@@ -97,300 +88,172 @@ export function LiveReport() {
     !expired && isProduction
       ? (listingDisplayPrice(recommendation?.suggestedListingPrice??null,recommendation?.indicativeAskingRange??null))
       : null;
+  const debug = useDebugView();
+  const [refineOpen, setRefineOpen] = useState(false);
   if (!state.confirmed)
     return (
       <section className="wrap workspace narrow">
-        <div className="eyebrow">YOUR RESALE REPORT</div>
-        <h1 className="page-title">Confirm an item to get started.</h1>
-        <p className="lead">
-          Identify a product, review the details and confirm it before searching
-          eBay. Reloading clears your current session.
-        </p>
+        <h1 className="page-title">No item yet</h1>
+        <p className="lead">Start with a photo. We&apos;ll identify the item and show what it&apos;s worth.</p>
         <div className="actions">
-          <Link href="/analyze" className="button">
-            Analyze an Item
-          </Link>
-          <Link href="/analysis?demo=1" className="text-link">
-            Open separate demo ↗
-          </Link>
-        </div>
-        <div className="info-card">
-          <strong>No market data loaded.</strong>
-          <p>No fictional prices are shown in a live report.</p>
+          <Link href="/analyze" className="button">Start with a photo</Link>
+          <Link href="/analysis?demo=1" className="secondary">See an example</Link>
         </div>
       </section>
     );
+
+  const item = state.confirmed;
+  const d = state.details;
+  const chips = [
+    item.brand,
+    d.size ? `Size ${d.size}${d.sizeSystem && d.sizeSystem !== "Clothing" ? ` ${d.sizeSystem.replace("US ", "US ")}` : ""}` : null,
+    d.condition ? { new: "New", used: "Used", refurbished: "Refurbished", parts: "For parts" }[d.condition] : null,
+    d.packaging === "original" ? "With box" : null,
+    item.colorway,
+  ].filter(Boolean) as string[];
+  const ebayPrice = !expired && isProduction ? supportedPrice(recommendation) : null;
+  const mercariPrice = mercariEvidence && mercariEvidence.result.expiresAt && Date.parse(mercariEvidence.result.expiresAt) > clock ? supportedPrice(mercariEvidence.recommendation) : null;
+  const best = ebayPrice !== null ? { price: ebayPrice, market: "eBay", rec: recommendation } : mercariPrice !== null ? { price: mercariPrice, market: "Mercari", rec: mercariEvidence?.recommendation } : null;
+  const missingKeyDetails = !d.size || !d.condition;
+  const sized = /sneaker|shoe|footwear|boot|apparel|clothing|shirt|hoodie|jacket|pants|dress/i.test(`${item.category || ""} ${item.productName || ""}`);
+
   return (
-    <section className="wrap workspace">
-      <div className="demo-notice">
-        <ShieldCheck size={17} />
-        <span>
-          <strong>Evidence first.</strong> Active asking prices only.
-          Completed-sale prices, demand and forecasts are unavailable.
-        </span>
-      </div>
-      <div className="section-heading">
-        <div>
-          <Link className="back" href="/dashboard">
-            ← Dashboard
-          </Link>
-          <h1 className="page-title">Your resale evidence</h1>
-          <p className="muted">
-            Actual listing evidence, with its limits in view.
-          </p>
+    <section className="wrap workspace report">
+      <Link className="back" href="/analyze">← Edit item</Link>
+
+      <header className="report-head">
+        <div className="report-photo">{state.photos[0] ? <img src={state.photos[0].url} alt={`Your photo of ${item.productName}`} /> : null}</div>
+        <div className="report-title">
+          <h1>{item.productName}</h1>
+          {!!chips.length && <div className="chip-row">{chips.map((c) => <span key={c} className="chip">{c}</span>)}</div>}
         </div>
-        <Link href="/analyze" className="secondary">
-          Review identification <ArrowUpRight size={17} />
-        </Link>
-      </div>
-      <div className="report-grid marketplace-report-grid">
-        <ReportItem />
-        <PricingPanel recommendation={recommendation} previous={request.previous?.recommendation} expired={expired} requestStatus={request.state.status} error={error||undefined} updatedAt={(data??request.previous)?.snapshot?.updatedAt??(data??request.previous)?.result.retrievedAt} version={(data??request.previous)?.snapshot?.persisted===false?undefined:(data??request.previous)?.snapshot?.version} snapshotNotice={data?.snapshot?.persisted===false?"Incomplete search: this observation is not saved as a daily snapshot. Refresh manually when the provider is available.":undefined} onRefresh={()=>void search(!!request.previous)} />
-        {mercariQuery&&<MercariPricing query={mercariQuery} now={clock} confirmationId={state.confirmationId} onEvidence={onMercariEvidence} />}
-      </div>
-      <MarketplaceComparison ebay={searchIdentification===state.confirmed?data:null} mercari={mercariEvidence} now={clock} />
-      <CreateListingButton ebay={searchIdentification===state.confirmed?data:null} mercari={mercariEvidence} />
-      <EbayAIReview result={result} />
-      <section className="panel block">
-        <h2>Refine your comparables</h2>
-        <p role="status" className={loading ? "sr-only" : undefined}>{loading ? "Analyzing eBay marketplace listings. " + loadingMessages.ebay.join(". ") : error ? "" : !result ? "Ready to search eBay." : result.examined === 0 ? "Search completed: eBay returned zero listings." : result.comparables.length === 0 ? "Listings retrieved, but none matched the item." : recommendation?.suggestedListingPrice ? "Relevant listings and a qualified asking-price recommendation available." : "Relevant listings available; insufficient evidence for a reliable specific-item valuation."}</p>
-        <p className="muted">
-          Optional details improve matching quality. Uncertain attributes keep a listing in close or related evidence rather than exact pricing.
-        </p>
-        <MatchDetailsFields
-          identification={state.confirmed}
-          value={state.details}
-          onChange={(details) => dispatch({ type: "details", details })}
-          disabled={loading}
-        />
-        <p className="fine block">
-          Brand, model and SKU are optional. Add an exact SKU only if you can
-          verify it from your product. Results are a filtered sample, not a
-          census of the marketplace.
-        </p>
-        {result?.reason && (
-          <div className="info-card" role="status">
-            <strong>
-              {result.status === "unavailable"
-                ? "Marketplace data unavailable"
-                : "Search result"}
-            </strong>
-            <p>{result.reason}</p>
-            {result.retryAfterSeconds && (
-              <p>
-                Retry after approximately {result.retryAfterSeconds} seconds.
-              </p>
-            )}
+      </header>
+
+      <section className="card price-card" aria-labelledby="price-h">
+        <div className="price-hero">
+          <p id="price-h" className="price-label">Suggested asking price</p>
+          {best ? (
+            <>
+              <p className="price-value">{dollars(best.price)}</p>
+              <p className="muted">From current {best.market} listings. These are asking prices, not completed sales.</p>
+            </>
+          ) : loading || (!mercariEvidence && !!state.confirmationId) ? (
+            <p className="price-value is-loading" aria-busy="true"><span className="request-skeleton request-skeleton--price" /></p>
+          ) : (
+            <>
+              <p className="price-value is-empty">Not enough data</p>
+              <p className="muted">We couldn&apos;t find enough similar listings to suggest a price{missingKeyDetails && sized ? ". Adding the size and condition usually helps." : "."}</p>
+              {missingKeyDetails && sized && (
+                <button type="button" className="text-link" onClick={() => setRefineOpen(true)}>Add size and condition</button>
+              )}
+            </>
+          )}
+          <div className="price-cta">
+            <CreateListingButton ebay={searchIdentification === state.confirmed ? data : null} mercari={mercariEvidence} />
           </div>
-        )}
-        {result?.status === "no_matches" && (
-          <div className="info-card">
-            <strong>{result.examined === 0 ? "eBay returned zero listings." : "No matching listings after filtering."}</strong>
-            <p>
-              Review the item description or optional details. Broader discovery queries are shown in advanced diagnostics; no demo prices are substituted.
-            </p>
-          </div>
-        )}
-        {lastSuccessfulKey && lastSuccessfulKey !== key && request.state.status === "idle" && (
-          <p className="fine">
-            Details changed. Search again; previous statistics have been
-            cleared.
-          </p>
-        )}
+        </div>
+
+        <div className="market-rows">
+          <PricingPanel
+            details={state.details}
+            recommendation={recommendation}
+            previous={request.previous?.recommendation}
+            expired={expired}
+            requestStatus={request.state.status}
+            error={error || undefined}
+            updatedAt={(data ?? request.previous)?.snapshot?.updatedAt ?? (data ?? request.previous)?.result.retrievedAt}
+            onRefresh={() => void search(true)}
+          >
+            {debug && <RetrievalDiagnostics result={result} />}
+          </PricingPanel>
+          {mercariQuery && <MercariPricing query={mercariQuery} now={clock} confirmationId={state.confirmationId} onEvidence={onMercariEvidence} />}
+        </div>
       </section>
-      <section className="panel block"><h2>Refine eBay search</h2><label>Recognizable product name<input maxLength={100} disabled={loading} value={searchName} placeholder={state.confirmed.productName || "Product name"} onChange={e=>{nameIdentity.current=JSON.stringify(state.confirmed);setSearchName(e.target.value);}} /></label><p className="fine">Broad name searches run first. Size, condition, edition and verified identifiers refine match quality rather than suppressing the broad search. Use Search eBay comparables after editing.</p></section>
-      {loading && <section className="panel block" aria-label="Marketplace comparison results">
-        <h2>Marketplace comparison results</h2>
-        <div aria-busy="true">
-          <div className="market-stats" aria-hidden="true">{["Median asking", "Average asking", "Lowest asking", "Highest asking", "Matching listings"].map(label =>
-            <div key={label}><span className="muted">{label}</span><span className="request-skeleton request-skeleton--stat" /></div>)}</div>
-          <SkeletonLines count={3} />
-        </div>
-      </section>}
-      {result && result.status !== "unavailable" && (
-        <>
-          <section className="panel block">
-            <div className="section-heading">
-              <div>
-                <h2>
-                  {isProduction
-                    ? "Comparable asking-price statistics"
-                    : "Sandbox statistics — not market evidence"}
-                </h2>
-                <p className="muted">
-                  Item price only. Shipping is listed separately; taxes are not
-                  included.
-                </p>
-              </div>
-              <span className="pill">
-                {result.cached ? "CACHED SNAPSHOT" : "API SNAPSHOT"}
-              </span>
+
+      <div className="report-sections">
+        <details className="disclosure" open={refineOpen} onToggle={(e) => setRefineOpen((e.currentTarget as HTMLDetailsElement).open)}>
+          <summary>Improve accuracy <small>{missingKeyDetails && sized ? "Add size and condition" : "Size, condition and more"}</small></summary>
+          <div className="disclosure-body">
+            <p className="muted">Prices update after you change these.</p>
+            <MatchDetailsFields identification={state.confirmed} value={state.details} onChange={(details) => dispatch({ type: "details", details })} disabled={loading} part="essential" />
+            <details className="details-link">
+              <summary>More details</summary>
+              <MatchDetailsFields identification={state.confirmed} value={state.details} onChange={(details) => dispatch({ type: "details", details })} disabled={loading} part="more" />
+              <label className="field block">
+                Search eBay with a different name
+                <input maxLength={100} disabled={loading} value={searchName} placeholder={state.confirmed.productName || "Product name"} onChange={(e) => { nameIdentity.current = JSON.stringify(state.confirmed); setSearchName(e.target.value); }} />
+              </label>
+            </details>
+            <div>
+              <button type="button" className="secondary" disabled={loading} onClick={() => void search()}>Update prices</button>
+              {lastSuccessfulKey && lastSuccessfulKey !== key && request.state.status === "idle" && <p className="fine block">Details changed. Update prices to see new results.</p>}
             </div>
-            <div className="market-stats">
-              {[
-                ["Median asking", stats?.median],
-                ["Average asking", stats?.average],
-                ["Lowest asking", stats?.lowest],
-                ["Highest asking", stats?.highest],
-              ].map(([label, value]) => (
-                <div key={String(label)}>
-                  <span className="muted">{label}</span>
-                  <strong>{dollars(value as number | undefined)}</strong>
-                </div>
-              ))}
-              <div>
-                <span className="muted">Matching listings</span>
-                <strong>{result.comparables.length}</strong>
-                <small>{stats?.count || 0} listings eligible for asking-price statistics</small>
-              </div>
-            </div>
-            <p className="fine block">
-              Last retrieved:{" "}
-              {result.retrievedAt
-                ? new Date(result.retrievedAt).toLocaleString()
-                : "Not retrieved"}{" "}
-              · Expires:{" "}
-              {result.expiresAt
-                ? new Date(result.expiresAt).toLocaleString()
-                : "N/A"}{" "}
-              · {result.examined} examined · {result.excluded} mismatches
-              excluded · {result.invalid} invalid, duplicate, ended or
-              unsupported rows excluded.
-            </p>
-            <RetrievalDiagnostics result={result}/>
-            {result.searchDiagnostics && <details className="info-card"><summary>Advanced search diagnostics</summary><div><strong>{result.searchDiagnostics.exact} exact · {result.searchDiagnostics.close} close · {result.searchDiagnostics.related} related</strong><p>Pricing basis: {recommendation?.pricingBasis}. Related listings and unresolved attribute mismatches never contribute to pricing.</p><ul>{result.searchDiagnostics.attempts.map(a=><li key={a.stage}>{a.stage}: “{a.query}” — {a.returned} returned{a.error ? `; ${a.error}` : ""}</li>)}</ul><small>Cache reference: {result.searchDiagnostics.cacheKey}</small></div></details>}
-            {result.diagnostics && (
-              <details className="fine"><summary>Listing filter diagnostics: {result.diagnostics.accepted} accepted of {result.examined} returned</summary>
-                <p>{result.diagnostics.normalized} valid rows reached product matching. Variation listings may be displayed while excluded from statistics.</p>
-                <ul>{Object.entries(result.diagnostics.exclusions).map(([reason, count]) => <li key={reason}>{reason.replaceAll("_", " ")}: {count}</li>)}</ul>
-                <ul>{result.diagnostics.rows.map((row, index) => <li key={`${row.id}-${index}`}>{row.title || row.id}: {row.stage} — {row.reason.replaceAll("_", " ")}</li>)}</ul>
-              </details>
-            )}
-            {expired && (
-              <p className="error">
-                Snapshot expired. Figures below are historical observations, not
-                current quotes.
-              </p>
-            )}
-          </section>
-          <section className="panel block">
-            <h2>Listings supporting the evidence</h2>
-            {(["exact", "close", "related"] as const).map(tier => <div key={tier}><h3>{tier === "exact" ? "Exact comparables" : tier === "close" ? "Close comparables — attributes may differ" : "Related listings — context only"} ({result.comparables.filter(item=>(item.matchTier || "exact")===tier).length})</h3><div className="table-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    {[
-                      "eBay listing",
-                      "Item asking price",
-                      "Shipping quoted",
-                      "Seller condition",
-                      "Match evidence",
-                    ].map((x) => (
-                      <th key={x}>{x}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {result.comparables.filter(item=>(item.matchTier || "exact")===tier).sort((a,b)=>(b.quality?.score??0)-(a.quality?.score??0)||a.id.localeCompare(b.id)).map((item) => (
-                    <tr key={item.id}>
-                      <td className="listing-title">
-                        <a
-                          href={item.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          {item.title} ↗
-                        </a>
-                        <small>
-                          {item.seller
-                            ? `Seller: ${item.seller}`
-                            : "Seller unavailable"}
-                        </small>
-                      </td>
-                      <td>{dollars(item.price)}</td>
-                      <td>
-                        {item.shipping === null
-                          ? "Not quoted"
-                          : dollars(item.shipping)}
-                      </td>
-                      <td>{item.condition}</td>
-                      <td className="listing-match">
-                        {item.quality && <small>Evidence score: {item.quality.score}/100 · {item.quality.signals.join(", ")}</small>}{item.matchReasons.join(" · ")}
-                        {item.warnings.map(warning => <small key={warning}>{warning}</small>)}
-                      </td>
-                    </tr>
+          </div>
+        </details>
+
+        {result && result.status !== "unavailable" && (
+          <details className="disclosure">
+            <summary>Listings we compared <small>{stats ? `${stats.count} used for the price` : `${result.comparables.length} found`}</small></summary>
+            <div className="disclosure-body">
+              {stats && (
+                <div className="market-stats">
+                  {[["Typical", stats.median], ["Lowest", stats.lowest], ["Highest", stats.highest]].map(([label, value]) => (
+                    <div key={String(label)}><span className="muted">{label}</span><strong>{dollars(value as number)}</strong></div>
                   ))}
-                </tbody>
-              </table>
-            </div></div>)}
-            <p className="fine block">
-              Missing details that improve accuracy: condition, category-specific size/storage/edition, and an item-verified identifier where available. A LEGO theme alone cannot establish a set value.
-              Active listings can change or end. Shipping quotes may depend on
-              buyer location. A title match does not verify condition,
-              authenticity or availability of a particular size. Review each
-              source listing.
-            </p>
-          </section>
-        </>
-      )}
-      <div className="two-grid block">
-        <div className="panel">
-          <h2>What the evidence supports</h2>
-          <dl>
-            <div>
-              <dt>Price basis</dt>
-              <dd>Active item asking prices</dd>
+                </div>
+              )}
+              <ul className="comp-list">
+                {[...result.comparables]
+                  .filter((c) => (c.matchTier || "exact") !== "related" && c.priceEligible !== false)
+                  .sort((a, b) => (b.quality?.score ?? 0) - (a.quality?.score ?? 0) || a.id.localeCompare(b.id))
+                  .slice(0, 12)
+                  .map((c) => (
+                    <li key={c.id}>
+                      <a href={c.url} target="_blank" rel="noopener noreferrer">{c.title}</a>
+                      <span className="comp-meta">{c.condition}</span>
+                      <strong>{dollars(c.price)}</strong>
+                    </li>
+                  ))}
+              </ul>
+              <p className="fine">Current eBay asking prices. Listings can change or end at any time.</p>
             </div>
-            <div>
-              <dt>Verified resale value</dt>
-              <dd>Unavailable</dd>
-            </div>
-            <div>
-              <dt>Completed sales</dt>
-              <dd>Not accessible</dd>
-            </div>
-            <div>
-              <dt>Best marketplace</dt>
-              <dd>See marketplace evidence comparison above</dd>
-            </div>
-            <div>
-              <dt>Sell now / seasonality</dt>
-              <dd>Not assessed</dd>
-            </div>
-          </dl>
-          <p className="fine block">
-            eBay evidence and any permitted Facebook comparisons are separate.
-            Without sold evidence, there is no defensible expected selling price
-            or timing recommendation.
-          </p>
-        </div>
-        <div className="panel insights">
-          <h2>Evidence limitations</h2>
-          <ul className="evidence-list">
-            {[
-              ...new Set([
-                ...(recommendation?.reasons || []),
-                "Active inventory is a biased sample of unsold asking prices.",
-                "No historical price series or future predictions are generated.",
-              ]),
-            ].map((x) => (
-              <li key={x}>{x}</li>
-            ))}
-          </ul>
-          <Link href="/analysis?demo=1" className="text-link">
-            Open the separate fictional demo ↗
-          </Link>
-        </div>
-      </div>
-      <FacebookMarketplaceSection />
-      <MarketplaceProfit ebay={data} mercari={mercariEvidence} now={clock} />
-      <EbayProceeds
-        key={key + String(suggested)}
-        askingPrice={suggested}
-        isSneaker={/sneaker|shoe|footwear/i.test(
-          state.confirmed.category || "",
+          </details>
         )}
-      />
+
+        <details className="disclosure">
+          <summary>Profit calculator <small>Estimate what you&apos;ll keep</small></summary>
+          <div className="disclosure-body">
+            <MarketplaceProfit ebay={data} mercari={mercariEvidence} now={clock} />
+            {/sneaker|shoe|footwear/i.test(state.confirmed.category || "") && <EbayProceeds key={key + String(suggested)} askingPrice={suggested} isSneaker />}
+          </div>
+        </details>
+
+        <details className="disclosure">
+          <summary>About these prices</summary>
+          <div className="disclosure-body">
+            <ul className="evidence-list">
+              <li>Prices come from items currently listed for sale, not from completed sales.</li>
+              <li>We only compare listings that match your item, and leave out ones that don&apos;t.</li>
+              <li>We don&apos;t predict how fast an item will sell.</li>
+            </ul>
+          </div>
+        </details>
+
+        {debug && (
+          <details className="disclosure">
+            <summary>Developer details</summary>
+            <div className="disclosure-body fine">
+              <MarketplaceComparison ebay={searchIdentification === state.confirmed ? data : null} mercari={mercariEvidence} now={clock} />
+              <EbayAIReview result={result} />
+              {result?.searchDiagnostics && <p>{result.searchDiagnostics.exact} exact · {result.searchDiagnostics.close} close · {result.searchDiagnostics.related} related · {result.examined} examined · {result.excluded} excluded · {result.invalid} invalid</p>}
+              {result?.diagnostics && <ul>{Object.entries(result.diagnostics.exclusions).map(([r, n]) => <li key={r}>{r.replaceAll("_", " ")}: {n}</li>)}</ul>}
+              {result?.reason && <p>{result.reason}</p>}
+              <p>{(recommendation?.reasons || []).join(" ")}</p>
+            </div>
+          </details>
+        )}
+      </div>
+      <div role="status" className="sr-only">{loading ? "Checking prices. " + loadingMessages.ebay.join(". ") : ""}</div>
     </section>
   );
 }

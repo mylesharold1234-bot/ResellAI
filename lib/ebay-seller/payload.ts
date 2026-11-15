@@ -230,9 +230,26 @@ export function ebayRequirements(draft: ListingDraft, rules: CategoryRules = {},
       add("ebay-package", "Enter the packed weight and box dimensions.", "Your shipping policy uses calculated postage, which eBay prices from package size.", "package");
   }
   const aspects = buildAspects(draft, rules.aspects);
-  for (const a of (rules.aspects || []).filter((x) => x.required && !aspects[x.name]))
+  const usable = new Set(usableAttributes(draft).map((a) => a.key));
+  for (const a of (rules.aspects || []).filter((x) => x.required && !aspects[x.name])) {
+    // When eBay's required specific is one of the listing's own details (size, department, brand…) that the
+    // seller hasn't supplied yet, ask for that detail once: filling it fills eBay's specific too. The id matches
+    // the listing's own requirement so the two are shown as one.
+    const attr = draft.attributes.find((x) => (aspectNames[x.key] || []).some((n) => n.toLowerCase() === a.name.toLowerCase()));
+    if (attr && !usable.has(attr.key)) {
+      issues.push({ id: `attr-${attr.key}`, severity: "blocker", basis: "marketplace", message: `Add the ${attr.label.toLowerCase()}.`, why: `eBay requires ${a.name} for this category.`, fix: `attr:${attr.key}`, target: "specifics" });
+      continue;
+    }
     add(`ebay-aspect-${a.name}`, `Add "${a.name}" (eBay requires it for this category).`, `eBay won't publish in this category without ${a.name}.`, `ebay-aspect:${a.name}`);
+  }
   return issues;
+}
+
+/** One list of blockers: listing requirements first, then eBay's, with any requirement that appears in both shown once. */
+export function mergeRequirements(listing: ReadinessIssue[], ebay: ReadinessIssue[]) {
+  const seen = new Set(listing.map((i) => i.id));
+  const fixes = new Set(listing.map((i) => i.fix));
+  return [...listing, ...ebay.filter((i) => !seen.has(i.id) && !(i.fix && fixes.has(i.fix) && ["title", "photos", "description"].includes(i.fix)))];
 }
 
 /**

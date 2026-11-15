@@ -34,7 +34,7 @@ export function MercariPricing({query,now,confirmationId,onEvidence}:{query:Prod
     return ()=>{cancelled=true;};
   },[confirmationId]);
   const display=data??previous;
-  return <PricingPanel marketplace="Mercari" recommendation={data?.recommendation} previous={previous?.recommendation}
+  return <PricingPanel marketplace="Mercari" details={query.details} recommendation={data?.recommendation} previous={previous?.recommendation}
     expired={!!display?.result.expiresAt&&Date.parse(display.result.expiresAt)<=now} requestStatus={state.status}
     error={state.status==="error"?state.message:undefined} updatedAt={display?.snapshot?.updatedAt??display?.result.retrievedAt}
     version={display?.snapshot?.persisted===false?undefined:display?.snapshot?.version} snapshotNotice={data?.snapshot?.persisted===false?"Incomplete search: this observation is not saved as a daily snapshot. Refresh manually when the provider is available.":undefined} onRefresh={()=>void search(!!previous)}>

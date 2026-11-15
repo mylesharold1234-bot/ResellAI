@@ -20,7 +20,7 @@ test('separate broader reference never populates recommendation or profit for ei
   assert.equal(rec.marketReference?.median,70);assert.equal(rec.marketReference.count,3);
   assert.equal(rec.marketReference.kind,'broader-market-asking-reference');
   const html=renderToStaticMarkup(createElement(PricingPanel,{recommendation:rec,expired:false}));
-  assert.match(html,/Price unavailable/);assert.match(html,/Non-item-specific reference only/);assert.doesNotMatch(html,/Recommended Listing Price|class="big-value"/);
+  assert.match(html,/market-price is-empty/);assert.match(html,/No price yet/);assert.doesNotMatch(html,/Price found|\$70/);
   const profit=renderToStaticMarkup(createElement(MarketplaceProfit,{ebay:{result,recommendation:rec},mercari:null,now}));
   assert.match(profit,/Profit unavailable without a current supported listing price/);assert.doesNotMatch(profit,/Hypothetical sale price/);
   const expired=renderToStaticMarkup(createElement(PricingPanel,{recommendation:rec,expired:true}));

@@ -10,7 +10,7 @@ test('complete saxophone packages survive both accessory checks; separate access
 test('complete console/controller and camera/lens packages retain their primary product',()=>{for(const [name,title,category] of [['PlayStation 5','Sony PlayStation 5 Console with controllers','Electronics'],['Canon EOS R5 Camera','Canon EOS R5 Camera with Lens','Cameras']]){const x={identification:{...q.identification,brand:name.startsWith('Canon')?'Canon':'Sony',model:name,productName:name,category},details:{...emptyMatchDetails,condition:'used' as const}};assert.equal(primaryProduct(item(title),x).kind,'complete');assert.ok(tierComparable(item(title),x).item);}});
 test('close-comparable pricing, assumptions and offer range are deterministic',()=>{const r=pricingEngine(result(identifiedClose()),identified,{...defaultPricingOptions,negotiationMarginPercent:5});assert.equal(r.suggestedListingPrice,100);assert.equal(r.marginAdjustedAsk,105);assert.equal(r.provisional,true);assert.deepEqual(r.modeledOfferRange,{low:80,high:90});assert.equal(r.expectedSellingPrice,null);assert.equal(r.eligibleCount,3);assert.equal(r.conditionCohort,'used');});
 test('robust outliers, shipping and seller diversity remain traceable',()=>{const r=pricingEngine(result(identifiedClose([90,95,100,105,110,10000])),identified);assert.deepEqual(r.outlierIds,['5']);assert.equal(r.statistics?.median,100);assert.equal(r.eligibleCount,5);const delivered=pricingEngine(result(identifiedClose()),identified,{...defaultPricingOptions,shippingBasis:'delivered',buyerShippingCharge:5});assert.equal(delivered.statistics?.median,110);assert.equal(delivered.suggestedListingPrice,105);assert.equal(pricingEngine(result(identifiedClose().map(x=>({...x,seller:null}))),identified).suggestedListingPrice,null);});
-test('weak evidence gives an illustrative scenario; expired evidence is historical only',()=>{const weak=pricingEngine(result(close([100])),q);assert.equal(weak.suggestedListingPrice,null);assert.equal(weak.modeledOfferRange,null);assert.ok(weak.illustrativeScenario);const snapshot=result(close());snapshot.expiresAt=new Date(Date.now()-1000).toISOString();const old=pricingEngine(snapshot,q);assert.equal(old.suggestedListingPrice,null);assert.equal(old.modeledOfferRange,null);assert.equal(old.illustrativeScenario,null);assert.equal(old.statistics?.median,100);const html=renderToStaticMarkup(createElement(PricingPanel,{recommendation:old,options:defaultPricingOptions,onChange(){},expired:true,historical:100}));assert.match(html,/EXPIRED SNAPSHOT/);assert.match(html,/Historical starting ask/);});
+test('weak evidence gives an illustrative scenario; expired evidence is historical only',()=>{const weak=pricingEngine(result(close([100])),q);assert.equal(weak.suggestedListingPrice,null);assert.equal(weak.modeledOfferRange,null);assert.ok(weak.illustrativeScenario);const snapshot=result(close());snapshot.expiresAt=new Date(Date.now()-1000).toISOString();const old=pricingEngine(snapshot,q);assert.equal(old.suggestedListingPrice,null);assert.equal(old.modeledOfferRange,null);assert.equal(old.illustrativeScenario,null);assert.equal(old.statistics?.median,100);const html=renderToStaticMarkup(createElement(PricingPanel,{recommendation:old,options:defaultPricingOptions,onChange(){},expired:true,historical:100}));assert.match(html,/These prices are out of date/);assert.match(html,/Refresh to check current listings/);assert.doesNotMatch(html,/Price found|\$100\.00/);});
 test('invalid assumptions and unresolved description conflicts cannot produce supported guidance',()=>{assert.throws(()=>parsePricingOptions({negotiationMarginPercent:99}));assert.throws(()=>parsePricingOptions({offerDiscountLowPercent:30,offerDiscountHighPercent:10}));const x={...q,identification:{...q.identification,understanding:{primaryProduct:'Saxophone',subtype:'alto',describedCondition:'used',includedAccessories:[],conflicts:['Description says tenor but image appears alto'],modelSupport:'unknown' as const,evidence:[]}}};assert.equal(pricingEngine(result(close()),x).suggestedListingPrice,null);});
 test('structured image/description sources validate and an unsupported year is not a model',()=>{const i=parseIdentification({...q.identification,model:'2024',understanding:{primaryProduct:'Saxophone',subtype:'alto',describedCondition:'used',includedAccessories:['case'],conflicts:[],modelSupport:'inferred',evidence:[{field:'brand',value:'Ozici',source:'user-described'}]}});assert.equal(i.model,null);assert.equal(i.understanding?.evidence[0].source,'user-described');assert.throws(()=>parseIdentification({...i,understanding:{...i.understanding,evidence:[{field:'brand',value:'Ozici',source:'independently-verified'}]}}));assert.equal(redactDescription('Ozici saxophone email seller@example.com phone 555-123-4567'),'Ozici saxophone email [email removed] phone [phone removed]');});
 test('AI review receives no prices, URLs or seller contacts and validates source IDs',async()=>{const fetcher:typeof fetch=async(_url,init)=>{const b=JSON.parse(String(init?.body));assert.equal(b.store,false);const input=JSON.parse(b.input);assert.equal(input.listings[0].price,undefined);assert.equal(input.listings[0].url,undefined);assert.equal(input.listings[0].seller,undefined);return Response.json({status:'completed',output:[{type:'message',content:[{type:'output_text',text:JSON.stringify({summary:'Complete instrument with accessories',rankings:[{id:'0',similarity:90,primaryProduct:'complete',reason:'Same subtype; model uncertain'}],uncertainties:['Exact model unconfirmed']})}]}]});};assert.equal((await reviewComparables(q,close(),'test','gpt-4.1-mini',fetcher)).rankings[0].id,'0');});
@@ -27,12 +27,12 @@ test('dashboard shows a median-based starting ask only when closely matched evid
  assert.equal(r.suggestedListingPrice,100);
  assert.equal(r.eligibleCount,3);
  const markup=(recommendation:typeof r)=>renderToStaticMarkup(createElement(PricingPanel,{recommendation,options:defaultPricingOptions,onChange(){},expired:false}));
- assert.match(markup(r),/Recommended Listing Price[\s\S]*\$99.99[\s\S]*Based on 3 comparable eBay listings/);
+ assert.match(markup(r),/Price found[\s\S]*\$99.99[\s\S]*Based on 3 similar eBay listings/);
  const uncertain=pricingEngine(result(close()),q);
  assert.equal(uncertain.suggestedListingPrice,null);
  const html=markup(uncertain);
- assert.match(html,/Price unavailable/);
- assert.match(html,/Add a clear photo of the model label/);
+ assert.match(html,/We need the exact model to compare prices/);
+ assert.match(html,/Add a clear photo of the label or tag/);
  assert.doesNotMatch(html,/Scenario only|Illustrative negotiation scenario|class="big-value"/);
 });
 
@@ -59,9 +59,10 @@ test('incomplete black and white Jordan 1 Mid flows from Browse rows to the esti
  assert.equal(rec.exclusions['close: incompatible or unknown condition'],1);
  assert.equal(rec.exclusions['close: variation price unverified'],1);
  const markup=renderToStaticMarkup(createElement(PricingPanel,{recommendation:rec,options:defaultPricingOptions,onChange(){},expired:false}));
- assert.match(markup,/Recommended Listing Price[\s\S]*\$99.99[\s\S]*Based on 5 comparable eBay listings/);
- assert.match(markup,/\$90.00–\$110.00/);
- assert.match(markup,/Evidence quality: <strong>Limited/);
+ assert.match(markup,/Price found[\s\S]*\$99.99[\s\S]*Based on 5 similar eBay listings/);
+ assert.match(markup,/Most ask \$90–\$110/);
+ // Evidence quality is shown in the developer view; the rating itself is unchanged.
+ assert.equal((await import('./pricing-intelligence')).evidenceQuality(rec).level,'Limited');
  const verified:ProductQuery={...query,details:{...emptyMatchDetails,condition:'new' as const,size:'10',sizeSystem:'US Men',productIdentifier:'DQ1234-001',productIdentifierVerified:true}};
  const exact=rows.slice(0,5).map((_,n)=>raw('Nike Air Jordan 1 Mid Black White US Mens Size 10 DQ1234-001',98+n,30+n));
  const exactResult=normalizeEbaySearch({itemSummaries:exact},'production',new Date().toISOString()).items.map(row=>tierComparable(row,verified).item!);
@@ -69,6 +70,6 @@ test('incomplete black and white Jordan 1 Mid flows from Browse rows to the esti
  assert.equal(qualified.pricingBasis,'exact');
  assert.equal(qualified.provisional,false);
  assert.equal(qualified.suggestedListingPrice,100);
- assert.match(renderToStaticMarkup(createElement(PricingPanel,{recommendation:qualified,options:defaultPricingOptions,onChange(){},expired:false})),/Recommended Listing Price/);
+ assert.match(renderToStaticMarkup(createElement(PricingPanel,{recommendation:qualified,options:defaultPricingOptions,onChange(){},expired:false})),/market-price">\$/);
 });
 

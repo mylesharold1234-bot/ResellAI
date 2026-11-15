@@ -10,7 +10,7 @@ import type { MatchDetails } from "../marketplaces";
  */
 export type Provenance = "user-confirmed" | "identified" | "ai-inferred" | "missing";
 
-export type ListingMarketplace = "ebay" | "mercari" | "facebook" | "other";
+export type ListingMarketplace = "ebay" | "mercari" | "other";
 
 export type ListingCategory =
   | "footwear"

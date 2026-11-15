@@ -44,20 +44,13 @@ export function CreateListingButton({ ebay, mercari }: { ebay: MarketEvidence; m
       setBusy(false);
     }
   }
-  const evidenceNote = [ebay, mercari].some((x) => x?.recommendation.suggestedListingPrice != null)
-    ? "Your confirmed details, photos and pricing evidence carry over."
-    : "Your confirmed details and photos carry over. Pricing evidence isn't available yet, so you can set the price yourself.";
   return (
-    <section className="panel block create-listing-panel" aria-label="Create a listing">
-      <div>
-        <span className="pill">NEXT STEP</span>
-        <h2>Ready to sell it?</h2>
-        <p className="muted">{evidenceNote} Nothing is published without your review.</p>
-        {error && <p className="error" role="alert">{error}</p>}
-      </div>
+    <div className="create-listing">
       <button className="button" onClick={() => void create()} disabled={busy} aria-busy={busy}>
-        <FilePenLine size={18} /> {busy ? "Creating draft…" : "Create Listing"} <ArrowRight size={18} />
+        <FilePenLine size={17} aria-hidden="true" /> {busy ? "Writing your listing…" : "Create listing"} <ArrowRight size={17} aria-hidden="true" />
       </button>
-    </section>
+      <p className="fine">We&apos;ll write it for you. Nothing is published until you review it.</p>
+      {error && <p className="error" role="alert">{error}</p>}
+    </div>
   );
 }

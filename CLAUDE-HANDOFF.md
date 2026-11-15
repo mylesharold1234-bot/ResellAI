@@ -23,7 +23,6 @@ Server-only configuration names (values are never included here):
 - OpenAI: OPENAI_API_KEY, optional OPENAI_VISION_MODEL.
 - eBay: EBAY_CLIENT_ID, EBAY_CLIENT_SECRET, EBAY_ENVIRONMENT, EBAY_PRODUCTION_APPROVED. Preserve the existing authorized Production configuration; matching App ID/Cert ID keyset required.
 - Mercari through API.SH: APISH_API_KEY, MERCARI_MAX_SEARCH_QUERIES. Default 1 conserves credits; 2 permits one controlled fallback.
-- Facebook/Social Fetch: SOCIAL_FETCH_API_KEY, SOCIAL_FETCH_PERMITTED_USE_CONFIRMED, SOCIAL_FETCH_PERMISSION_REFERENCE. Do not enable the gate without establishing the documented rights; possession of a key is insufficient.
 
 ## Current functionality
 

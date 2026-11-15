@@ -2,7 +2,6 @@
 import { IdentificationWarning } from "../../components/identification-warning";
 import {recognizableName} from "../../lib/product-profile";
 import { useRef, useState } from "react";
-import { FacebookLocationFields } from "../../components/facebook-location-fields";
 import { MatchDetailsFields } from "../../components/match-details-fields";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -115,287 +114,204 @@ export default function Analyze() {
       setError((e as Error).message);
     }
   }
-  const canConfirm =
-    !!state.draft && !!recognizableName(state.draft);
+  const canConfirm = !!state.draft && !!recognizableName(state.draft);
+  const editField = (k: (typeof identityFields)[number], v: string) =>
+    dispatch({ type: "edit", identification: { ...state.draft!, [k]: v || null } });
+  const essentials = (["productName", "brand", "model", "colorway"] as const).filter((k) => identityFields.includes(k));
+  const others = identityFields.filter((k) => !essentials.includes(k as (typeof essentials)[number]));
+  const labels: Record<string, string> = { productName: "Item", brand: "Brand", model: "Model", colorway: "Color" };
   return (
-    <section className="wrap workspace narrow">
-      <div className="demo-notice">
-        <Camera size={17} />
-        <span>
-          <strong>AI identification.</strong> Review the result before
-          confirming. eBay asks for matching details after identification. Sold
-          prices are not available.
-        </span>
-      </div>
-      <Link className="back" href="/dashboard">
-        ← Back to dashboard
-      </Link>
-      <div className="eyebrow">A PHOTO IS ALL IT TAKES</div>
-      <h1 className="page-title">What’s your next find?</h1>
-      <p className="lead">
-        Start with a clear photo. Add close-ups of labels or details for a
-        better match.
-      </p>
-      <div
-        className={`upload-zone ${drag ? "dragging" : ""}`}
-        onDragOver={(e) => {
-          e.preventDefault();
-          if (!busy) setDrag(true);
-        }}
-        onDragLeave={() => setDrag(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDrag(false);
-          if (!busy && !selecting) void select(e.dataTransfer.files);
-        }}
-      >
-        {state.photos.length > 0 ? (
-          <div className="photo-grid">
-            {state.photos.map((photo, i) => (
-              <div key={photo.id}>
-                <img
-                  className="upload-preview"
-                  src={photo.url}
-                  alt={`Uploaded product photo ${i + 1}`}
-                />
-                <p>{photo.name}</p>
-                <button
-                  disabled={busy || selecting}
-                  className="secondary"
-                  onClick={() => remove(photo.id)}
-                >
-                  <X size={16} />
-                  Remove photo {i + 1}
+    <section className="wrap workspace narrow analyze">
+      {!state.draft || busy ? (
+        <>
+          <h1 className="page-title">What are you selling?</h1>
+          <p className="lead">Add a clear photo of the item. A close-up of the label or tag helps.</p>
+          <div
+            className={`upload-zone ${drag ? "dragging" : ""}`}
+            onDragOver={(e) => {
+              e.preventDefault();
+              if (!busy) setDrag(true);
+            }}
+            onDragLeave={() => setDrag(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDrag(false);
+              if (!busy && !selecting) void select(e.dataTransfer.files);
+            }}
+          >
+            {state.photos.length > 0 ? (
+              <div className="photo-grid">
+                {state.photos.map((photo, i) => (
+                  <div key={photo.id} className="photo-tile">
+                    <img className="upload-preview" src={photo.url} alt={`Your photo ${i + 1}`} />
+                    <button disabled={busy || selecting} className="icon-button photo-remove" onClick={() => remove(photo.id)} aria-label={`Remove photo ${i + 1}`}>
+                      <X size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <>
+                <div className="upload-icon"><UploadCloud size={24} aria-hidden="true" /></div>
+                <h2>Drop photos here</h2>
+                <p>or choose them from your device</p>
+              </>
+            )}
+            {state.photos.length < 3 && (
+              <div className="upload-actions">
+                <label className={state.photos.length ? "secondary file-button" : "button file-button"}>
+                  {selecting ? "Opening…" : state.photos.length ? "Add another photo" : "Choose photos"}
+                  <input
+                    disabled={busy || selecting}
+                    multiple
+                    aria-label="Choose product photos"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={(e) => {
+                      void select(e.target.files);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+                <button disabled={busy || selecting} className="secondary" onClick={() => camera.current?.click()}>
+                  <Camera size={17} aria-hidden="true" /> Take a photo
                 </button>
               </div>
-            ))}
-          </div>
-        ) : (
-          <>
-            <div className="upload-icon">
-              <UploadCloud size={32} />
-            </div>
-            <h2>Drop your next opportunity here</h2>
-            <p>Drag photos here, or choose them from your device.</p>
-          </>
-        )}
-        {state.photos.length < 3 && (
-          <>
-            <label className="button file-button">
-              {selecting
-                ? "Opening photos…"
-                : state.photos.length
-                  ? "Add more photos"
-                  : "Choose a photo"}
-              <input
-                disabled={busy || selecting}
-                multiple
-                aria-label="Choose product photos"
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={(e) => {
-                  void select(e.target.files);
-                  e.target.value = "";
-                }}
-              />
-            </label>
-            <button
+            )}
+            {selecting && <RequestProgress title="Opening your photos…" />}
+            <small>Up to 3 photos · JPG, PNG or WebP</small>
+            <input
+              hidden
+              ref={camera}
+              aria-label="Take an item photo"
+              type="file"
+              accept="image/*"
+              capture="environment"
               disabled={busy || selecting}
-              className="text-link"
-              onClick={() => camera.current?.click()}
-            >
-              <Camera size={18} />
-              Take a photo
-            </button>
-          </>
-        )}
-        {selecting && <RequestProgress title="Opening your photos…" messages={["Checking image format and size"]} />}
-        <small>JPG, PNG, WebP · Up to 3 photos · 10 MB combined</small>
-        <input
-          hidden
-          ref={camera}
-          aria-label="Take an item photo"
-          type="file"
-          accept="image/*"
-          capture="environment"
-          disabled={busy || selecting}
-          onChange={(e) => {
-            void select(e.target.files);
-            e.target.value = "";
-          }}
-        />
-      </div>
-      <label className="notes-label">
-        Additional information (optional)
-        <textarea
-          maxLength={1500}
-          rows={3}
-          disabled={busy}
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="Visible label text, size, suspected model, or details the photo doesn’t show…"
-        />
-      </label>
-      <div className="info-card">
-        <strong>
-          Photos are sent to OpenAI when you choose Identify Item.
-        </strong>
-        <p>
-          Use product-only photos. The app keeps photos in browser memory, with
-          no permanent storage; a reload clears this session. AI can make
-          mistakes and cannot verify authenticity.
-        </p>
-      </div>
-      <button
-        disabled={busy || selecting || !state.photos.length}
-        className="button"
-        onClick={() => void identify()}
-      >
-        {busy ? (
-          <>
-            <RequestSpinner size={18} />
-            Analyzing your product…
-          </>
-        ) : (
-          <>
-            {analysis.state.status === "error" ? "Retry image analysis" : state.draft ? "Re-analyze with photos & details" : "Identify Item"}
-            <ArrowRight size={18} />
-          </>
-        )}
-      </button>
-      <div role="status" className="sr-only">{selecting ? "Opening your photos." : busy ? "Analyzing your product. " + loadingMessages.identification.join(". ") : analysis.state.status === "success" ? "Identification ready to review." : ""}</div>
-      {busy && <section className="panel block" aria-label="Product identification">
-        <RequestProgress title="Analyzing your product…" messages={loadingMessages.identification} />
-        <div aria-busy="true"><SkeletonLines count={5} /></div>
-      </section>}
-      {analysis.state.status === "error" && <p role="alert" className="error">{analysis.state.message}{state.draft ? " The identification below is from the previous analysis." : ""}</p>}
-      {error && (
-        <p role="alert" className="error">
-          {error}
-        </p>
-      )}
-      {state.draft && !busy && (
-        <section
-          className="panel block identification-review"
-          aria-label="Review identification"
-        >
-          <div className="row">
-            <h2>Review identification</h2>
-            <span className="pill">
-              {state.draft.confidence.toUpperCase()} CONFIDENCE
-            </span>
+              onChange={(e) => {
+                void select(e.target.files);
+                e.target.value = "";
+              }}
+            />
           </div>
-          <p className="fine">
-            Model self-assessment, not a measured accuracy score. Edit any field
-            before confirming.
-          </p>
-          {state.draft.understanding?.evidence.some(e=>["materials","logos","colorPlacement"].includes(e.field)) && <details className="info-card">
-            <summary>Photo details and their sources</summary>
-            <ul>{state.draft.understanding.evidence.filter(e=>["materials","logos","colorPlacement"].includes(e.field)).map((e,index)=><li key={index}>
-              {e.value} ({e.source==="image-visible"?"visible in photo":e.source==="user-described"?"user supplied":"AI inferred"})
-            </li>)}</ul>
-          </details>}
-          {!!state.draft.understanding?.candidates?.length && <details className="info-card">
-            <summary>Possible identities (unverified)</summary>
-            <ul>{state.draft.understanding.candidates.map((candidate,index)=><li key={index}>
-              <strong>{candidate.model}{candidate.variant?" — "+candidate.variant:""}</strong>: {candidate.basis}
-            </li>)}</ul>
-          </details>}
-          {state.draft.uncertainties.length > 0 && (
-            <div className="info-card">
-              <strong>What’s uncertain</strong>
-              <ul>
-                {state.draft.uncertainties.map((x, i) => (
-                  <li key={i}>{x}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {(state.draft.additionalEvidence.length > 0 ||
-            state.draft.confidence === "low") && (
-            <div className="info-card">
-              <strong>A closer look would help</strong>
-              <p>
-                Add up to three photos above or provide more information, then
-                re-analyze.
-              </p>
-              <ul>
-                {state.draft.additionalEvidence.map((x, i) => (
-                  <li key={i}>{x}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {!!state.draft.understanding?.conflicts.length && <div className="info-card" role="alert"><strong>Image and description need clarification</strong><ul>{state.draft.understanding.conflicts.map(c=><li key={c}>{c}</li>)}</ul><p>Correct the relevant fields below, then confirm that you reviewed the disagreement. General discovery remains available.</p><label><input type="checkbox" style={{width:"auto"}} checked={state.draft.userReviewedConflicts===true} onChange={e=>dispatch({type:"edit",identification:{...state.draft!,userReviewedConflicts:e.target.checked}})} /> I clarified the conflicting details</label></div>}
-          {state.draft.understanding && <p className="fine">Primary product: {state.draft.understanding.primaryProduct}. Subtype and accessory fields may be AI-inferred or user-described; review them before confirmation.</p>}
-          <IdentificationWarning identification={state.draft} details={state.details} />
-          <details className="block"><summary className="secondary">Add item details (optional)</summary>
-          <div className="identity-fields">
-            {identityFields.map((k) => (
-              <label key={k}>
-                {fieldLabels[k]}
-                {k === "productName" ? " (recognizable description)" : " (optional)"}
-                <small>{`${state.sources[k] || "ai-inferred"}; not independently verified`}</small>
-                <input
-                  maxLength={1500}
-                  disabled={busy || selecting}
-                  value={state.draft![k] || ""}
-                  placeholder="Unknown / not visible"
-                  onChange={(e) =>
-                    dispatch({
-                      type: "edit",
-                      identification: {
-                        ...state.draft!,
-                        [k]: e.target.value || null,
-                      },
-                    })
-                  }
-                />
-              </label>
-            ))}
-          </div>
-          <p className="fine">
-            A recognizable item description is enough to search. Brand, model and SKU are optional. Your corrections do not
-            increase the AI’s confidence.
-          </p>
-          <h3 className="block">Improve comparable matching (optional)</h3>
-          <p className="fine">
-            Enter size and condition. Include only an exact identifier you can
-            verify; never infer it from a colorway.
-          </p>
-          <MatchDetailsFields
-            identification={state.draft}
-            value={state.details}
-            onChange={(details) => dispatch({ type: "details", details })}
-            disabled={busy || selecting}
-          />
-          <FacebookLocationFields
-            value={state.facebookLocation}
-            onChange={(location) =>
-              dispatch({ type: "facebook-location", location })
-            }
-            disabled={busy || selecting}
-          />
-          <button
-            disabled={busy || selecting || !canConfirm}
-            className="button"
-            onClick={() => confirm("refined")}
-          >
-            Continue with these details <ArrowRight size={18} />
-          </button>
+
+          <details className="details-link block">
+            <summary>Add a note for the AI (optional)</summary>
+            <textarea
+              aria-label="Note about the item"
+              maxLength={1500}
+              rows={3}
+              disabled={busy}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Size, label text, or anything the photo doesn't show"
+            />
           </details>
-          <button className="button block" disabled={busy || selecting || !canConfirm} onClick={() => confirm("general")}>No, continue with general search <ArrowRight size={18} /></button>
-          <p className="fine">
-            Next: your item photo and confirmed details alongside an eBay
-            active-listing report. Asking prices are not completed-sale prices.
-          </p>
-        </section>
+
+          <div className="analyze-cta">
+            <button disabled={busy || selecting || !state.photos.length} className="button" onClick={() => void identify()}>
+              {busy ? (
+                <>
+                  <RequestSpinner size={17} /> Identifying…
+                </>
+              ) : (
+                <>
+                  {analysis.state.status === "error" ? "Try again" : "Identify item"} <ArrowRight size={17} aria-hidden="true" />
+                </>
+              )}
+            </button>
+            <p className="fine">Photos are sent to OpenAI to identify the item and aren&apos;t stored. AI can make mistakes and can&apos;t verify authenticity.</p>
+          </div>
+          <div role="status" className="sr-only">{selecting ? "Opening your photos." : busy ? "Identifying your item." : ""}</div>
+          {busy && (
+            <div className="card analyze-loading" aria-label="Identifying your item">
+              <RequestProgress title="Identifying your item…" messages={loadingMessages.identification} />
+              <div aria-busy="true"><SkeletonLines count={3} /></div>
+            </div>
+          )}
+          {analysis.state.status === "error" && <p role="alert" className="error">{analysis.state.message}</p>}
+          {error && <p role="alert" className="error">{error}</p>}
+          <p className="fine block"><Link className="text-link" href="/analysis?demo=1">See an example report</Link></p>
+        </>
+      ) : (
+        <>
+          <button type="button" className="back" onClick={() => dispatch({ type: "photos", photos: state.photos })}>← Change photos</button>
+          <h1 className="page-title">Is this right?</h1>
+          <p className="lead">Check what we found. Size and condition make the price much more accurate.</p>
+          {analysis.state.status === "error" && <p role="alert" className="error">{analysis.state.message}</p>}
+          {error && <p role="alert" className="error">{error}</p>}
+
+          <section className="card confirm-card" aria-label="Review identification">
+            <div className="confirm-head">
+              {state.photos[0] && <img className="confirm-photo" src={state.photos[0].url} alt="Your item" />}
+              <div className="confirm-name">
+                <label className="sr-only" htmlFor="id-productName">Item name</label>
+                <input
+                  id="id-productName"
+                  className="confirm-name-input"
+                  maxLength={150}
+                  value={state.draft.productName || ""}
+                  placeholder="What is it?"
+                  onChange={(e) => editField("productName", e.target.value)}
+                />
+                <span className={`pill ${state.draft.confidence === "high" ? "success" : state.draft.confidence === "low" ? "warning" : ""}`}>
+                  {state.draft.confidence === "high" ? "Confident match" : state.draft.confidence === "low" ? "Not sure, please check" : "Likely match"}
+                </span>
+              </div>
+            </div>
+
+            <div className="details-grid">
+              {essentials.filter((k) => k !== "productName").map((k) => (
+                <label className="field" key={k}>
+                  {labels[k]}
+                  <input maxLength={150} disabled={selecting} value={state.draft![k] || ""} placeholder="Unknown" onChange={(e) => editField(k, e.target.value)} />
+                </label>
+              ))}
+            </div>
+            <MatchDetailsFields identification={state.draft} value={state.details} onChange={(details) => dispatch({ type: "details", details })} disabled={selecting} part="essential" />
+
+            {state.draft.uncertainties.length > 0 && (
+              <p className="fine confirm-note">Not certain: {state.draft.uncertainties.join(" ")}</p>
+            )}
+            {!!state.draft.understanding?.conflicts.length && (
+              <div className="warn-box" role="alert">
+                <strong>Your photo and note don&apos;t agree:</strong> {state.draft.understanding.conflicts.join(" ")} Fix the details above before continuing.
+              </div>
+            )}
+            <IdentificationWarning identification={state.draft} details={state.details} />
+
+            <details className="disclosure confirm-more">
+              <summary>More details <small>Optional</small></summary>
+              <div className="disclosure-body">
+                <div className="details-grid">
+                  {others.map((k) => (
+                    <label className="field" key={k}>
+                      {fieldLabels[k]}
+                      <input maxLength={1500} disabled={selecting} value={state.draft![k] || ""} placeholder="Unknown" onChange={(e) => editField(k, e.target.value)} />
+                    </label>
+                  ))}
+                </div>
+                <MatchDetailsFields identification={state.draft} value={state.details} onChange={(details) => dispatch({ type: "details", details })} disabled={selecting} part="more" />
+                {(state.draft.understanding?.candidates?.length || state.draft.additionalEvidence.length) ? (
+                  <div className="fine">
+                    {!!state.draft.understanding?.candidates?.length && <p>Other possibilities: {state.draft.understanding.candidates.map((c) => c.model + (c.variant ? ` (${c.variant})` : "")).join(", ")}.</p>}
+                    {!!state.draft.additionalEvidence.length && <p>A photo of these would help: {state.draft.additionalEvidence.join("; ")}.</p>}
+                  </div>
+                ) : null}
+              </div>
+            </details>
+
+            <div className="confirm-actions">
+              <button disabled={busy || selecting || !canConfirm} className="button" onClick={() => confirm("refined")}>
+                Looks right — see prices <ArrowRight size={17} aria-hidden="true" />
+              </button>
+              <button type="button" className="secondary" disabled={busy || selecting} onClick={() => void identify()}>
+                Identify again
+              </button>
+            </div>
+          </section>
+        </>
       )}
-      <p className="fine block">
-        <Link href="/analysis?demo=1">
-          Explore the fictional pricing example without AI →
-        </Link>
-      </p>
     </section>
   );
 }

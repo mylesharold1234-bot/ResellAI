@@ -1,10 +1,10 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowDown, ArrowUp, Check, CheckCircle2, Download, ImageUp, Loader2, RefreshCw, Send, Sparkles } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, ChevronRight, Download, ImageUp, Loader2, RefreshCw, Send, Sparkles } from "lucide-react";
 import { applyGenerated, editConditionText, editText, generatedFields, refreshPlan, type GeneratedField, type GeneratedListing } from "../../lib/listing/apply";
-import { buildAspects } from "../../lib/ebay-seller/payload";
-import { categoryLabels, marketplaces } from "../../lib/listing/categories";
+import { buildAspects, mergeRequirements } from "../../lib/ebay-seller/payload";
+import { marketplaces } from "../../lib/listing/categories";
 import { confirmAttribute, editAttribute, upgradeDraft } from "../../lib/listing/draft";
 import { getDraft, getPhotos, saveDraft, storageIsPersistent } from "../../lib/listing/drafts-store";
 import { exportListing } from "../../lib/listing/export";
@@ -13,7 +13,7 @@ import { factsKey, type GeneratedTextField } from "../../lib/listing/template";
 import type { ListingAttribute, ListingDraft, ListingMarketplace } from "../../lib/listing/types";
 import { CopyButton, dollars } from "./listing-bits";
 import { ListingPricingSection } from "./listing-pricing";
-import { RequirementFix, RequirementList, setGrade, type FixContext } from "./requirement-fix";
+import { RequirementFix, setGrade, type FixContext } from "./requirement-fix";
 import { downloadText, ReviewDialog } from "./review-dialog";
 import { ConnectionRow, PoliciesAndLocation, sellerSummary } from "./seller-settings";
 import { useEbaySeller, type EbaySeller } from "./use-ebay-seller";
@@ -37,7 +37,7 @@ export function ListingEditor({ id }: { id: string }) {
       try {
         const [d, photos, persists] = await Promise.all([getDraft(id), getPhotos(id), storageIsPersistent()]);
         if (cancelled) return;
-        if (!d) return setLoadError("This draft wasn't found in this browser. Drafts are saved on the device where you created them.");
+        if (!d) return setLoadError("This listing wasn't found in this browser. Listings are saved on the device where you created them.");
         urls = photos.map((p) => URL.createObjectURL(p.blob));
         setPhotoUrls(Object.fromEntries(photos.map((p, i) => [p.photoId, urls[i]])));
         setPersistent(persists);
@@ -45,7 +45,7 @@ export function ListingEditor({ id }: { id: string }) {
         setSave("saved");
         loaded.current = true;
       } catch (e) {
-        if (!cancelled) setLoadError(e instanceof Error ? e.message : "Could not open this draft.");
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : "Could not open this listing.");
       }
     })();
     return () => {
@@ -83,12 +83,12 @@ export function ListingEditor({ id }: { id: string }) {
   if (loadError)
     return (
       <section className="wrap workspace narrow">
-        <h1 className="page-title">Draft unavailable</h1>
-        <p className="error" role="alert">{loadError}</p>
+        <h1 className="page-title">Listing not found</h1>
+        <p className="muted">{loadError}</p>
         <p className="block"><Link className="button" href="/listings">Back to listings</Link></p>
       </section>
     );
-  if (!draft) return <section className="wrap workspace" aria-busy="true"><p className="muted">Opening draft…</p></section>;
+  if (!draft) return <section className="wrap workspace" aria-busy="true"><p className="muted">Opening listing…</p></section>;
   return <ListingWorkspace draft={draft} update={update} setDraft={setDraft} photoUrls={photoUrls} save={save} persistent={persistent} flush={flush} />;
 }
 
@@ -114,7 +114,7 @@ function ListingWorkspace({
   const [busy, setBusy] = useState<GeneratedField[] | null>(null);
   const [genNote, setGenNote] = useState<{ source: string; warnings: string[] } | null>(null);
   const [genError, setGenError] = useState("");
-  const [reviewOpen, setReviewOpen] = useState(false);
+  const [review, setReview] = useState<null | "review" | "fix">(null);
   const latest = useRef(draft);
   latest.current = draft;
   const busyRef = useRef(false);
@@ -134,14 +134,14 @@ function ListingWorkspace({
           signal: AbortSignal.timeout(50000),
         });
         const body = (await response.json().catch(() => null)) as { listing?: GeneratedListing; error?: string } | null;
-        if (!response.ok || !body?.listing) throw new Error(body?.error || "Listing generation failed. Try again.");
+        if (!response.ok || !body?.listing) throw new Error(body?.error || "Writing failed. Try again.");
         const listing = body.listing;
         // Facts are recorded from the draft that was sent: if the seller changed something meanwhile,
         // the text is detected as out of date and refreshed again.
         setDraft((d) => (d ? applyGenerated(d, listing, fields, { overwriteUserEdits, writtenFrom: sent }) : d));
         setGenNote({ source: listing.source, warnings: listing.warnings });
       } catch (e) {
-        setGenError(e instanceof Error && e.name === "TimeoutError" ? "Writing timed out. Try again." : e instanceof Error ? e.message : "Listing generation failed.");
+        setGenError(e instanceof Error && e.name === "TimeoutError" ? "Writing took too long. Try again." : e instanceof Error ? e.message : "Writing failed.");
       } finally {
         busyRef.current = false;
         setBusy(null);
@@ -158,7 +158,7 @@ function ListingWorkspace({
     if (!draft.title.value.trim() && !draft.description.value.trim()) void generate(generatedFields, false);
   }, [draft.title.value, draft.description.value, generate]);
 
-  // When confirmed details change, generated text is rewritten automatically (debounced). Text the seller edited
+  // When confirmed details change, AI-written text is rewritten automatically (debounced). Text the seller edited
   // is never overwritten; it's flagged instead. Each set of facts is tried once, so a failure can't loop.
   const plan = refreshPlan(draft);
   const attempted = useRef<Record<string, string>>({});
@@ -177,28 +177,22 @@ function ListingWorkspace({
   }, [autoKey, busy, generate]);
 
   const readiness = useMemo(() => assessListing(draft), [draft]);
-  const blockers = useMemo(() => {
-    const own = readiness.blockers;
-    const fixes = new Set(own.map((b) => b.fix));
-    // eBay checks that duplicate a general one (title length, photos, description) are shown once.
-    const ebay = isEbay ? seller.requirements.filter((r) => !(r.fix && fixes.has(r.fix) && ["title", "photos", "description"].includes(r.fix))) : [];
-    return [...own, ...ebay];
-  }, [readiness, seller.requirements, isEbay]);
+  // Every requirement appears once: a detail both ResellAI and eBay need (e.g. size) is a single item.
+  const blockers = useMemo(() => mergeRequirements(readiness.blockers, isEbay ? seller.requirements : []), [readiness, seller.requirements, isEbay]);
   const optional = useMemo(() => [...readiness.warnings, ...readiness.suggestions], [readiness]);
 
   const jump = useCallback((target: string) => {
-    setReviewOpen(false);
+    setReview(null);
     requestAnimationFrame(() => {
       const el = document.getElementById(target);
       if (!el) return;
       if (el instanceof HTMLDetailsElement) el.open = true;
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
       el.querySelector<HTMLElement>("input, textarea, select")?.focus({ preventScroll: true });
     });
   }, []);
 
   const ctx: FixContext = { draft, update, seller: isEbay ? seller : null, generate, busy: !!busy, beforeLeave: flush, jump };
-  const profile = marketplaces[draft.marketplace];
   const selected = draft.photos.filter((p) => p.selected);
   const mainPhoto = selected[0] ? photoUrls[selected[0].id] : undefined;
   const published = draft.ebay.publish?.status === "published";
@@ -209,18 +203,15 @@ function ListingWorkspace({
 
   return (
     <section className="wrap lx-page">
-      <div className="lx-top">
-        <div className="lx-top-text">
-          <Link className="back" href="/listings">← Listings</Link>
-          <h1 className="lx-h1">{draft.identification.productName || "Untitled item"}</h1>
-          <p className="save-state" role="status">
-            {categoryLabels[draft.category]} · {save === "saving" ? "Saving…" : save === "error" ? "Couldn't save. Check browser storage." : `Saved ${persistent ? "in this browser" : "for this tab only"}`}
-          </p>
-        </div>
-        <div className="lx-market" role="group" aria-label="Sell on">
+      <div className="lx-topbar">
+        <Link className="back" href="/listings">← Listings</Link>
+        <span className="lx-save" role="status">
+          {save === "saving" ? "Saving…" : save === "error" ? "Couldn't save" : persistent ? "Saved" : "Saved for this tab"}
+        </span>
+        <div className="segmented" role="group" aria-label="Sell on">
           {(Object.keys(marketplaces) as ListingMarketplace[]).map((m) => (
             <button key={m} type="button" aria-pressed={draft.marketplace === m} onClick={() => setMarketplace(m)}>
-              {m === "facebook" ? "Facebook" : m === "other" ? "Other" : marketplaces[m].label}
+              {m === "other" ? "Other" : marketplaces[m].label}
             </button>
           ))}
         </div>
@@ -229,362 +220,308 @@ function ListingWorkspace({
       {seller.flash && isEbay && <p className="tip" role="status">{seller.flash}</p>}
       {seller.error && isEbay && <p className="error" role="alert">{seller.error}</p>}
 
-      <div className="lx-grid">
-        <div className="lx-main">
-          <ListingPreview draft={draft} update={update} photoUrls={photoUrls} busy={busy} generate={generate} genNote={genNote} genError={genError} needsApproval={plan.needsApproval} jump={jump} />
+      <div className="lx-layout">
+        <PhotoPanel draft={draft} photoUrls={photoUrls} jump={jump} />
 
-          <Section id="specifics" title="All item specifics" summary={specificsSummary(draft)}>
-            <SpecificsEditor draft={draft} update={update} />
-          </Section>
+        <div className="lx-sheet">
+          <ListingCopy draft={draft} update={update} busy={busy} generate={generate} genNote={genNote} genError={genError} needsApproval={plan.needsApproval} />
 
-          {isEbay && seller.connected && (
-            <Section id="ebay-details" title="eBay listing details" summary={draft.ebay.categoryName ? draft.ebay.categoryName.split(/ [›>] /).slice(-1)[0] : "Choosing a category…"}>
-              <EbayDetails draft={draft} seller={seller} ctx={ctx} />
-            </Section>
-          )}
-
-          <Section id="pricing" title="Price research & profit" summary={draft.pricing.price !== null ? `Listing at ${dollars(draft.pricing.price)}` : "Set a price"}>
-            <ListingPricingSection draft={draft} onChange={(pricing) => update((d) => ({ ...d, pricing }))} bare />
-          </Section>
-
-          <Section id="photos" title="Photos" summary={`${selected.length} of ${draft.photos.length} selected`}>
-            <PhotoManager draft={draft} update={update} photoUrls={photoUrls} />
-            {isEbay && seller.connected && seller.pending.length > 0 && (
-              <p className="lx-muted" style={{ marginTop: 12 }}>
-                {seller.pending.length} photo{seller.pending.length === 1 ? "" : "s"} upload to eBay automatically when you publish.{" "}
-                <button
-                  type="button"
-                  className="text-link"
-                  disabled={seller.phase !== "idle" || !seller.status?.publishingEnabled}
-                  onClick={async () => {
-                    try {
-                      await seller.uploadPhotos(draft);
-                    } catch (e) {
-                      seller.setError(e instanceof Error ? e.message : "Upload failed.");
-                    }
-                  }}
-                >
-                  <ImageUp size={13} /> Upload now
-                </button>
-              </p>
-            )}
-          </Section>
-
-          <Section id="package" title="Package & shipping details" summary={packageSummary(draft, seller.calculatedShipping)}>
-            <PackageEditor draft={draft} update={update} calculated={seller.calculatedShipping} />
-          </Section>
-
-          {draft.recommendations.length > 0 && (
-            <Section id="tips" title={`Listing tips for ${profile.label}`} summary={`${draft.recommendations.length} tips`}>
-              <ul className="lx-tips">{draft.recommendations.map((r) => <li key={r}><Sparkles size={13} /> <span>{r}</span></li>)}</ul>
-            </Section>
-          )}
-
-          <Section id="export" title="Copy & export" summary={`For ${profile.label}`}>
-            <ExportTools draft={draft} />
-          </Section>
-        </div>
-
-        <aside className="lx-side" aria-label="Publishing">
-          <div className="lx-card lx-status">
+          <div className="lx-actionbar">
             {published ? (
-              <p className="lx-ready"><CheckCircle2 size={17} /> Published on eBay</p>
+              <span className="lx-status-text ok"><Check size={16} aria-hidden="true" /> Published</span>
             ) : blockers.length ? (
-              <h2 className="lx-status-h">{blockers.length} thing{blockers.length === 1 ? "" : "s"} need{blockers.length === 1 ? "s" : ""} you</h2>
-            ) : (
-              <p className="lx-ready"><CheckCircle2 size={17} /> Ready to {isEbay ? "publish" : "export"}</p>
-            )}
-            {!published && blockers.length > 0 && <p className="lx-muted">Only what ResellAI can't fill in reliably. Everything else is done.</p>}
-            {!published && <RequirementList issues={blockers} ctx={ctx} kind="blocker" />}
-            <button type="button" className="button lx-review-btn" onClick={() => setReviewOpen(true)}>
-              <Send size={16} /> Review & {isEbay ? "Publish" : "Export"}
-            </button>
-            {optional.length > 0 && (
-              <button type="button" className="text-link lx-small lx-center" onClick={() => setReviewOpen(true)}>
-                {optional.length} optional suggestion{optional.length === 1 ? "" : "s"}
+              <button type="button" className="lx-needed" onClick={() => setReview("fix")}>
+                <span className="lx-dot" aria-hidden="true" /> {blockers.length} detail{blockers.length === 1 ? "" : "s"} needed <ChevronRight size={16} aria-hidden="true" />
               </button>
+            ) : (
+              <span className="lx-status-text ok"><Check size={16} aria-hidden="true" /> Ready</span>
             )}
+            <button type="button" className="button lx-publish" onClick={() => setReview("review")}>
+              <Send size={16} aria-hidden="true" /> Review &amp; {isEbay ? "Publish" : "Export"}
+            </button>
           </div>
 
-          {isEbay && (
-            <details className="lx-card lx-seller" id="ebay-settings" open={!seller.connected || summary.includes("to choose") || undefined}>
-              <summary>
-                <span>Shipping & seller settings</span>
-                <small>{summary}</small>
-              </summary>
-              <div className="lx-seller-body">
-                <ConnectionRow seller={seller} draftId={draft.id} beforeLeave={flush} />
-                {seller.connected && <PoliciesAndLocation draft={draft} seller={seller} />}
-                {seller.connected && <p className="lx-muted lx-small">Your choices are remembered for future listings. Nothing is created on eBay unless you click a Create button.</p>}
+          <div className="lx-more">
+            <details className="disclosure" id="specifics">
+              <summary>Item details <small>{specificsSummary(draft)}</small></summary>
+              <div className="disclosure-body"><SpecificsEditor draft={draft} update={update} /></div>
+            </details>
+            <details className="disclosure" id="pricing">
+              <summary>Price research &amp; profit <small>{draft.pricing.price !== null ? `Listing at ${dollars(draft.pricing.price)}` : "Set a price"}</small></summary>
+              <div className="disclosure-body"><ListingPricingSection draft={draft} onChange={(pricing) => update((d) => ({ ...d, pricing }))} bare /></div>
+            </details>
+            <details className="disclosure" id="photos">
+              <summary>Photos <small>{selected.length} of {draft.photos.length} used</small></summary>
+              <div className="disclosure-body">
+                <PhotoManager draft={draft} update={update} photoUrls={photoUrls} />
+                {isEbay && seller.connected && seller.pending.length > 0 && (
+                  <p className="fine">
+                    {seller.pending.length} photo{seller.pending.length === 1 ? "" : "s"} upload to eBay when you publish.{" "}
+                    <button
+                      type="button"
+                      className="text-link"
+                      disabled={seller.phase !== "idle" || !seller.status?.publishingEnabled}
+                      onClick={async () => {
+                        try {
+                          await seller.uploadPhotos(draft);
+                        } catch (e) {
+                          seller.setError(e instanceof Error ? e.message : "Upload failed.");
+                        }
+                      }}
+                    >
+                      <ImageUp size={13} aria-hidden="true" /> Upload now
+                    </button>
+                  </p>
+                )}
               </div>
             </details>
-          )}
-        </aside>
+            {isEbay && (
+              <details className="disclosure" id="ebay-settings" open={!seller.connected && !!seller.status?.configured ? true : undefined}>
+                <summary>Shipping &amp; seller settings <small>{summary}</small></summary>
+                <div className="disclosure-body">
+                  <ConnectionRow seller={seller} draftId={draft.id} beforeLeave={flush} />
+                  {seller.connected && <PoliciesAndLocation draft={draft} seller={seller} />}
+                  {seller.connected && <p className="fine">Your choices are remembered for future listings. Nothing is created on eBay unless you click a Create button.</p>}
+                </div>
+              </details>
+            )}
+            {isEbay && seller.connected && (
+              <details className="disclosure" id="ebay-details">
+                <summary>eBay category &amp; specifics <small>{draft.ebay.categoryName ? draft.ebay.categoryName.split(/ [›>] /).slice(-1)[0] : "Choosing…"}</small></summary>
+                <div className="disclosure-body"><EbayDetails draft={draft} seller={seller} ctx={ctx} /></div>
+              </details>
+            )}
+            <details className="disclosure" id="package">
+              <summary>Package size <small>{packageSummary(draft, seller.calculatedShipping)}</small></summary>
+              <div className="disclosure-body"><PackageEditor draft={draft} update={update} calculated={seller.calculatedShipping} /></div>
+            </details>
+            <details className="disclosure" id="export">
+              <summary>Copy &amp; export <small>Paste anywhere</small></summary>
+              <div className="disclosure-body"><ExportTools draft={draft} /></div>
+            </details>
+            {draft.recommendations.length > 0 && (
+              <details className="disclosure" id="tips">
+                <summary>Selling tips <small>{draft.recommendations.length}</small></summary>
+                <div className="disclosure-body">
+                  <ul className="lx-tips">{draft.recommendations.map((r) => <li key={r}>{r}</li>)}</ul>
+                </div>
+              </details>
+            )}
+          </div>
+        </div>
       </div>
 
-      <div className="lx-mobile-bar">
-        <span>{published ? "Published" : blockers.length ? `${blockers.length} to complete` : "Ready"}</span>
-        <button type="button" className="button" onClick={() => setReviewOpen(true)}><Send size={16} /> Review & {isEbay ? "Publish" : "Export"}</button>
-      </div>
-
-      {reviewOpen && <ReviewDialog ctx={ctx} blockers={blockers} optional={optional} mainPhoto={mainPhoto} onClose={() => setReviewOpen(false)} />}
+      {review && <ReviewDialog ctx={ctx} blockers={blockers} optional={optional} mainPhoto={mainPhoto} focus={review} onClose={() => setReview(null)} />}
     </section>
   );
 }
 
-function Section({ id, title, summary, children }: { id: string; title: string; summary?: string; children: React.ReactNode }) {
+function PhotoPanel({ draft, photoUrls, jump }: { draft: ListingDraft; photoUrls: Record<string, string>; jump: (t: string) => void }) {
+  const selected = draft.photos.filter((p) => p.selected);
+  const [active, setActive] = useState(0);
+  const main = selected[Math.min(active, Math.max(0, selected.length - 1))];
   return (
-    <details className="lx-card lx-section" id={id}>
-      <summary>
-        <span className="lx-section-title">{title}</span>
-        {summary && <small>{summary}</small>}
-      </summary>
-      <div className="lx-section-body">{children}</div>
-    </details>
+    <div className="lx-photos">
+      <div className="lx-hero">
+        {main && photoUrls[main.id] ? <img src={photoUrls[main.id]} alt={`${draft.identification.productName || "Item"} photo`} /> : <button type="button" className="lx-hero-empty" onClick={() => jump("photos")}>Choose a photo</button>}
+      </div>
+      {selected.length > 1 && (
+        <div className="lx-thumbs" role="group" aria-label="Photos">
+          {selected.map((p, i) => (
+            <button key={p.id} type="button" className="lx-thumb" aria-pressed={main?.id === p.id} aria-label={`Show photo ${i + 1}`} onClick={() => setActive(i)}>
+              {photoUrls[p.id] ? <img src={photoUrls[p.id]} alt="" /> : null}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
-/** Where a value came from, in a few words. */
-function Provenance({ a }: { a: ListingAttribute }) {
-  if (a.source === "missing") return a.required ? <span className="lx-prov need">Needed</span> : null;
-  if (a.source === "user-confirmed") return <span className="lx-prov ok" title="You entered or confirmed this"><Check size={11} /> You</span>;
-  if (a.source === "identified") return <span className="lx-prov id" title="Visible in your photo or stated in your notes">From photo</span>;
-  if (a.confirmed)
-    return (
-      <span className="lx-prov ok" title={a.confirmedVia === "identification" ? "AI-identified; you approved it at Confirm identification" : "AI-inferred; you confirmed it"}>
-        <Check size={11} /> {a.confirmedVia === "identification" ? "Identified" : "Checked"}
-      </span>
-    );
-  return <span className="lx-prov ai" title="The AI's guess. Check it.">AI guess</span>;
-}
-
-function AttributeProvenance({ a, update }: { a: ListingAttribute; update: Update }) {
+/** Where a value came from, as a quiet marker. Only AI guesses ask for attention. */
+function Provenance({ a, update }: { a: ListingAttribute; update: Update }) {
   if (a.source === "ai-inferred" && !a.confirmed && a.value.trim())
-    return <button type="button" className="lx-prov ai as-btn" onClick={() => update((d) => confirmAttribute(d, a.key))}>AI guess · Looks right?</button>;
-  return <Provenance a={a} />;
+    return <button type="button" className="lx-verify" onClick={() => update((d) => confirmAttribute(d, a.key))} title="The AI guessed this from your photo">Check</button>;
+  if (a.source === "missing") return a.required ? <span className="lx-flag need">Needed</span> : null;
+  const title = a.source === "user-confirmed" ? "Entered or confirmed by you" : a.source === "identified" ? "Seen in your photo or notes" : "Identified by AI and approved by you";
+  return <span className="lx-tick" title={title} aria-label={title}><Check size={13} /></span>;
 }
 
-const previewKeys = ["brand", "model", "size", "department", "color", "styleCode", "storage", "functionalStatus", "carrierLock", "subtype", "edition", "dimensions", "quantity"];
-const textLabel = (s: string) => (s === "ai-generated" ? "AI-written" : s === "template" ? "From your details" : s === "user-edited" ? "Edited by you" : "");
+const keyFacts = ["brand", "model", "size", "department", "color", "storage", "functionalStatus", "carrierLock", "subtype", "edition", "dimensions", "quantity"];
 
-function ListingPreview({
+function ListingCopy({
   draft,
   update,
-  photoUrls,
   busy,
   generate,
   genNote,
   genError,
   needsApproval,
-  jump,
 }: {
   draft: ListingDraft;
   update: Update;
-  photoUrls: Record<string, string>;
   busy: GeneratedField[] | null;
   generate: (fields: GeneratedField[], overwrite: boolean) => Promise<void>;
   genNote: { source: string; warnings: string[] } | null;
   genError: string;
   needsApproval: GeneratedTextField[];
-  jump: (target: string) => void;
 }) {
   const profile = marketplaces[draft.marketplace];
-  const selected = draft.photos.filter((p) => p.selected);
-  const [active, setActive] = useState(0);
-  const main = selected[Math.min(active, Math.max(0, selected.length - 1))];
   const writing = (f: GeneratedField) => !!busy?.includes(f);
-  const facts = draft.attributes.filter((a) => previewKeys.includes(a.key) && (a.required || a.value.trim()));
+  const facts = draft.attributes.filter((a) => keyFacts.includes(a.key) && (a.required || a.value.trim())).slice(0, 6);
   const c = draft.condition;
-  const evidence = draft.pricing.evidence.find((e) => e.provider === (draft.pricing.priceProvider || (draft.marketplace === "mercari" ? "mercari" : "ebay")) && e.status === "supported");
-  const rows = Math.min(22, Math.max(8, draft.description.value.split("\n").length + 2));
+  const p = draft.pricing;
+  const evidence = p.evidence.find((e) => e.provider === (p.priceProvider || (draft.marketplace === "mercari" ? "mercari" : "ebay")) && e.status === "supported");
+  const titleRef = useAutoGrow(draft.title.value);
+  const descRef = useAutoGrow(draft.description.value);
 
   return (
-    <article className="lx-card lx-preview" aria-label="Listing preview">
-      <div className="lx-media">
-        <div className="lx-hero">
-          {main && photoUrls[main.id] ? <img src={photoUrls[main.id]} alt={`${draft.identification.productName || "Item"} photo`} /> : <div className="lx-hero-empty">No photo selected</div>}
-        </div>
-        {selected.length > 1 && (
-          <div className="lx-thumbs" role="group" aria-label="Photos">
-            {selected.map((p, i) => (
-              <button key={p.id} type="button" className="lx-thumb" aria-pressed={main?.id === p.id} aria-label={`Show photo ${i + 1}`} onClick={() => setActive(i)}>
-                {photoUrls[p.id] ? <img src={photoUrls[p.id]} alt="" /> : null}
-              </button>
-            ))}
-          </div>
+    <div className="lx-copy">
+      <div className="lx-ai" aria-live="polite">
+        {busy ? (
+          <span className="lx-writing"><Loader2 size={14} className="spinner" aria-hidden="true" /> {busy.length > 1 ? "Writing your listing…" : `Updating the ${busy[0] === "condition" ? "condition note" : busy[0]}…`}</span>
+        ) : (
+          <span><Sparkles size={13} aria-hidden="true" /> {genNote?.source === "template" ? "Written from your details" : "Written by AI from your details"}</span>
         )}
-        <button type="button" className="text-link lx-small" onClick={() => jump("photos")}>Manage photos</button>
+        <button type="button" className="text-link" disabled={!!busy} onClick={() => void generate(generatedFields, false)} title="Rewrites AI-written text. Your own edits are kept.">
+          <RefreshCw size={13} aria-hidden="true" /> Rewrite
+        </button>
+      </div>
+      {genError && <p className="error" role="alert">{genError}</p>}
+      {needsApproval.length > 0 && (
+        <div className="lx-stale" role="status">
+          <span>Details changed since you edited the {needsApproval.map((f) => (f === "condition" ? "condition note" : f)).join(" and ")}. Your words are kept.</span>
+          <button type="button" className="text-link" disabled={!!busy} onClick={() => void generate(needsApproval, true)}>Update it for me</button>
+        </div>
+      )}
+
+      <div className="lx-field-title" id="title">
+        <label htmlFor="lx-title" className="sr-only">Title</label>
+        <textarea
+          id="lx-title"
+          ref={titleRef}
+          rows={1}
+          className="lx-title"
+          value={draft.title.value}
+          maxLength={200}
+          placeholder={writing("title") ? "Writing…" : "Title"}
+          onChange={(e) => update((d) => editText(d, "title", e.target.value.replace(/\n/g, " ")))}
+        />
+        <span className={`lx-chars ${draft.title.value.length > profile.titleLimit ? "over" : ""}`}>{draft.title.value.length}/{profile.titleLimit}</span>
+      </div>
+      {draft.title.warnings.length > 0 && <p className="lx-warn">{draft.title.warnings.join(" ")}</p>}
+
+      <div className="lx-price" id="price">
+        <label className="lx-price-input">
+          <span className="sr-only">Price in US dollars</span>
+          <span aria-hidden="true">$</span>
+          <input
+            inputMode="decimal"
+            value={p.price === null ? "" : String(p.price)}
+            placeholder="0"
+            aria-describedby="price-note"
+            onChange={(e) => {
+              const v = e.target.value.trim();
+              const n = Number(v);
+              update((d) => ({ ...d, pricing: { ...d.pricing, price: v === "" || !Number.isFinite(n) ? null : Math.round(n * 100) / 100, priceSource: "manual", priceProvider: null } }));
+            }}
+          />
+        </label>
+        <p id="price-note" className="lx-price-note">
+          {p.priceSource && p.priceSource !== "manual" && evidence
+            ? `Recommended from ${evidence.count} similar ${evidence.provider === "ebay" ? "eBay" : "Mercari"} listings`
+            : p.priceSource === "manual"
+              ? evidence?.suggested
+                ? <>Your price · <button type="button" className="text-link" onClick={() => update((d) => ({ ...d, pricing: { ...d.pricing, price: evidence.suggested, priceSource: "evidence", priceProvider: evidence.provider } }))}>use recommended {dollars(evidence.suggested)}</button></>
+                : "Your price"
+              : "Set your price"}
+        </p>
       </div>
 
-      <div className="lx-content">
-        <div className="lx-gen-row" aria-live="polite">
-          {busy ? (
-            <span className="lx-writing"><Loader2 size={14} className="spinner" /> {busy.length > 1 ? "Writing your listing…" : `Updating the ${busy[0] === "condition" ? "condition note" : busy[0]}…`}</span>
-          ) : genNote?.source === "template" ? (
-            <span className="lx-muted">Written from your confirmed details.</span>
-          ) : (
-            <span className="lx-muted"><Sparkles size={13} /> Written by AI from your confirmed details. Review before publishing.</span>
-          )}
-          <button type="button" className="mini-button" disabled={!!busy} onClick={() => void generate(generatedFields, false)} title="Rewrites AI-written text. Your own edits are kept.">
-            <RefreshCw size={13} /> Rewrite
-          </button>
-        </div>
-        {genError && <p className="error" role="alert">{genError}</p>}
-        {genNote && genNote.warnings.length > 0 && <p className="lx-note">{genNote.warnings.join(" ")}</p>}
-
-        {needsApproval.length > 0 && (
-          <div className="lx-stale" role="status">
-            <span>Your details changed after you edited the {needsApproval.map((f) => (f === "condition" ? "condition note" : f)).join(" and ")}. Your text is kept as you wrote it.</span>
-            <button type="button" className="mini-button" disabled={!!busy} onClick={() => void generate(needsApproval, true)}>
-              <RefreshCw size={13} /> Update with new details (replaces my edits)
-            </button>
-          </div>
-        )}
-
-        <div className="lx-field-block" id="title">
-          <div className="lx-label-row">
-            <label htmlFor="lx-title">Title</label>
-            <span className="lx-meta">
-              {textLabel(draft.title.source) && <span>{textLabel(draft.title.source)}</span>}
-              <span className={draft.title.value.length > profile.titleLimit ? "over" : undefined}>{draft.title.value.length}/{profile.titleLimit}</span>
-              <button type="button" className="lx-icon-btn" aria-label="Rewrite title" disabled={!!busy} onClick={() => void generate(["title"], true)}>
-                <RefreshCw size={13} className={writing("title") ? "spinner" : undefined} />
-              </button>
-            </span>
-          </div>
-          <input id="lx-title" className="lx-title-input" value={draft.title.value} maxLength={200} placeholder={writing("title") ? "Writing…" : "Title"} onChange={(e) => update((d) => editText(d, "title", e.target.value))} />
-          {draft.title.warnings.length > 0 && <p className="lx-inline-warn">{draft.title.warnings.join(" ")}</p>}
-        </div>
-
-        <div className="lx-price-row" id="price">
-          <label className="lx-price">
-            <span className="sr-only">Price (USD)</span>
-            <span className="lx-currency" aria-hidden="true">$</span>
-            <input
-              inputMode="decimal"
-              value={draft.pricing.price === null ? "" : String(draft.pricing.price)}
-              placeholder="0.00"
-              aria-describedby="price-note"
-              onChange={(e) => {
-                const v = e.target.value.trim();
-                const n = Number(v);
-                update((d) => ({ ...d, pricing: { ...d.pricing, price: v === "" || !Number.isFinite(n) ? null : Math.round(n * 100) / 100, priceSource: "manual", priceProvider: null } }));
-              }}
-            />
-          </label>
-          <div id="price-note" className="lx-price-note">
-            <span>
-              {draft.pricing.priceSource && draft.pricing.priceSource !== "manual" && evidence
-                ? `Suggested from ${evidence.count} active ${evidence.provider === "ebay" ? "eBay" : "Mercari"} listings (asking prices)`
-                : draft.pricing.priceSource === "manual"
-                  ? `Your price${evidence?.suggested ? ` · market suggests ${dollars(evidence.suggested)}` : ""}`
-                  : "No market suggestion yet; set your price"}
-            </span>
-            {evidence && (
-              <span className="lx-chips">
-                {(
-                  [
-                    ["Quick sale", evidence.quickSale, "quick-sale"],
-                    ["Market", evidence.suggested, "evidence"],
-                    ["Patient", evidence.patient, "patient"],
-                  ] as const
-                )
-                  .filter(([, v]) => v !== null)
-                  .map(([label, v, source]) => (
-                    <button
-                      key={label}
-                      type="button"
-                      className="lx-chip"
-                      aria-pressed={draft.pricing.price === v && draft.pricing.priceSource === source}
-                      onClick={() => update((d) => ({ ...d, pricing: { ...d.pricing, price: v, priceSource: source, priceProvider: evidence.provider } }))}
-                    >
-                      {label} {dollars(v)}
-                    </button>
-                  ))}
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="lx-facts" id="condition">
-          <div className="lx-fact">
-            <span className="lx-fact-label">Condition</span>
-            <div className="lx-fact-value">
-              <select aria-label="Condition" value={c.grade} onChange={(e) => update((d) => setGrade(d, e.target.value as ListingDraft["condition"]["grade"]))}>
-                <option value="">Choose…</option>
-                <option value="new">New</option>
-                <option value="used">Used / pre-owned</option>
-                <option value="refurbished">Refurbished</option>
-                <option value="parts">For parts / not working</option>
+      <dl className="lx-facts" id="condition">
+        <div className="lx-fact">
+          <dt>Condition</dt>
+          <dd>
+            <select aria-label="Condition" value={c.grade} onChange={(e) => update((d) => setGrade(d, e.target.value as ListingDraft["condition"]["grade"]))}>
+              <option value="">Choose…</option>
+              <option value="new">New</option>
+              <option value="used">Used</option>
+              <option value="refurbished">Refurbished</option>
+              <option value="parts">For parts</option>
+            </select>
+            {c.grade === "new" && (
+              <select aria-label="Original box" value={c.packaging} onChange={(e) => update((d) => ({ ...d, condition: { ...d.condition, packaging: e.target.value as ListingDraft["condition"]["packaging"] } }))}>
+                <option value="">Box?</option>
+                <option value="original">With box</option>
+                <option value="none">No box</option>
               </select>
-              {c.grade === "new" && (
-                <select aria-label="Original box" value={c.packaging} onChange={(e) => update((d) => ({ ...d, condition: { ...d.condition, packaging: e.target.value as ListingDraft["condition"]["packaging"] } }))}>
-                  <option value="">Box?</option>
-                  <option value="original">With box</option>
-                  <option value="none">No box</option>
-                </select>
-              )}
-            </div>
-            {c.gradeSource === "ai-inferred" && !c.confirmed ? (
-              <button type="button" className="lx-prov ai as-btn" onClick={() => update((d) => setGrade(d, d.condition.grade))} title="The AI inferred this from your photo">AI guess · Looks right?</button>
-            ) : c.grade ? (
-              <span className="lx-prov ok"><Check size={11} /> You</span>
-            ) : (
-              <span className="lx-prov need">Needed</span>
             )}
-          </div>
-          {facts.map((a) => (
-            <div className="lx-fact" key={a.key} id={`attr-${a.key}`}>
-              <label className="lx-fact-label" htmlFor={`fact-${a.key}`}>{a.label.replace(/ \/ .*$/, "")}</label>
-              <div className="lx-fact-value">
-                <input id={`fact-${a.key}`} value={a.value} placeholder={a.required ? "Needed" : "Optional"} onChange={(e) => update((d) => editAttribute(d, a.key, e.target.value))} />
-              </div>
-              <AttributeProvenance a={a} update={update} />
-            </div>
-          ))}
+            {c.gradeSource === "ai-inferred" && !c.confirmed ? (
+              <button type="button" className="lx-verify" onClick={() => update((d) => setGrade(d, d.condition.grade))}>Check</button>
+            ) : c.grade ? (
+              <span className="lx-tick" title="Confirmed by you" aria-label="Confirmed by you"><Check size={13} /></span>
+            ) : (
+              <span className="lx-flag need">Needed</span>
+            )}
+          </dd>
         </div>
+        {facts.map((a) => (
+          <div className="lx-fact" key={a.key} id={`attr-${a.key}`}>
+            <dt><label htmlFor={`fact-${a.key}`}>{a.label.replace(/ \/ .*$/, "")}</label></dt>
+            <dd>
+              <input id={`fact-${a.key}`} value={a.value} placeholder={a.required ? "Add" : "Optional"} onChange={(e) => update((d) => editAttribute(d, a.key, e.target.value))} />
+              <Provenance a={a} update={update} />
+            </dd>
+          </div>
+        ))}
         {c.grade && c.grade !== "new" && (
-          <div className="lx-flaws">
-            <label className="lx-fact-label" htmlFor="lx-flaws">Flaws or wear</label>
-            <input
-              id="lx-flaws"
-              value={c.defects}
-              placeholder={c.noKnownDefects ? "None known" : draft.category === "footwear" ? "e.g. light creasing on the toe box" : "e.g. light scuffs, small scratch"}
-              onChange={(e) => update((d) => ({ ...d, condition: { ...d.condition, defects: e.target.value, noKnownDefects: e.target.value.trim() ? false : d.condition.noKnownDefects } }))}
-            />
-            <label className="check-row lx-small">
-              <input type="checkbox" checked={c.noKnownDefects} disabled={!!c.defects.trim()} onChange={(e) => update((d) => ({ ...d, condition: { ...d.condition, noKnownDefects: e.target.checked } }))} /> <span>No flaws I know of</span>
-            </label>
+          <div className="lx-fact lx-fact-wide">
+            <dt><label htmlFor="lx-flaws">Flaws</label></dt>
+            <dd>
+              <input
+                id="lx-flaws"
+                value={c.defects}
+                placeholder={c.noKnownDefects ? "None I know of" : draft.category === "footwear" ? "e.g. light creasing on the toe box" : "e.g. light scuffs, small scratch"}
+                onChange={(e) => update((d) => ({ ...d, condition: { ...d.condition, defects: e.target.value, noKnownDefects: e.target.value.trim() ? false : d.condition.noKnownDefects } }))}
+              />
+              {!c.defects.trim() && (
+                <label className="lx-none">
+                  <input type="checkbox" checked={c.noKnownDefects} onChange={(e) => update((d) => ({ ...d, condition: { ...d.condition, noKnownDefects: e.target.checked } }))} /> None
+                </label>
+              )}
+            </dd>
           </div>
         )}
+      </dl>
 
-        <div className="lx-field-block" id="description">
-          <div className="lx-label-row">
-            <label htmlFor="lx-desc">Description</label>
-            <span className="lx-meta">
-              {textLabel(draft.description.source) && <span>{textLabel(draft.description.source)}</span>}
-              <span className={profile.descriptionLimit && draft.description.value.length > profile.descriptionLimit ? "over" : undefined}>
-                {draft.description.value.length.toLocaleString()}
-                {profile.descriptionLimit ? `/${profile.descriptionLimit.toLocaleString()}` : ""}
-              </span>
-              <button type="button" className="lx-icon-btn" aria-label="Rewrite description" disabled={!!busy} onClick={() => void generate(["description"], true)}>
-                <RefreshCw size={13} className={writing("description") ? "spinner" : undefined} />
-              </button>
-            </span>
-          </div>
-          <textarea id="lx-desc" className="lx-desc" rows={rows} value={draft.description.value} placeholder={writing("description") ? "Writing…" : "Description"} onChange={(e) => update((d) => editText(d, "description", e.target.value))} />
-          {draft.description.warnings.length > 0 && <p className="lx-inline-warn">{draft.description.warnings.join(" ")}</p>}
-        </div>
-
-        {c.grade && c.grade !== "new" && (
-          <details className="lx-subtle">
-            <summary>Condition note for buyers ({c.description ? textLabel(c.descriptionSource) || "set" : "written automatically"})</summary>
-            <textarea rows={3} className="lx-input" value={c.description} placeholder="Written automatically from the condition and flaws" onChange={(e) => update((d) => editConditionText(d, e.target.value))} />
-          </details>
-        )}
+      <div className="lx-field-desc" id="description">
+        <label htmlFor="lx-desc" className="sr-only">Description</label>
+        <textarea id="lx-desc" ref={descRef} className="lx-desc" rows={6} value={draft.description.value} placeholder={writing("description") ? "Writing…" : "Description"} onChange={(e) => update((d) => editText(d, "description", e.target.value))} />
+        {profile.descriptionLimit && <span className={`lx-chars ${draft.description.value.length > profile.descriptionLimit ? "over" : ""}`}>{draft.description.value.length}/{profile.descriptionLimit}</span>}
       </div>
-    </article>
+      {draft.description.warnings.length > 0 && <p className="lx-warn">{draft.description.warnings.join(" ")}</p>}
+      {genNote && genNote.warnings.length > 0 && genNote.source === "ai" && <p className="fine">{genNote.warnings.join(" ")}</p>}
+
+      {c.grade && c.grade !== "new" && (
+        <details className="details-link">
+          <summary>Condition note for buyers</summary>
+          <textarea rows={3} value={c.description} placeholder="Written automatically from the condition and flaws" onChange={(e) => update((d) => editConditionText(d, e.target.value))} />
+        </details>
+      )}
+    </div>
   );
+}
+
+/** Grow a textarea with its content so text never hides behind a scrollbar. */
+function useAutoGrow(value: string) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight + 2}px`;
+  }, [value]);
+  return ref;
 }
 
 function specificsSummary(draft: ListingDraft) {
@@ -596,32 +533,28 @@ function SpecificsEditor({ draft, update }: { draft: ListingDraft; update: Updat
   const unconfirmed = draft.attributes.filter((a) => a.source === "ai-inferred" && !a.confirmed && a.value.trim());
   return (
     <div>
-      <p className="lx-muted">Filled from your confirmed identification. Unconfirmed AI guesses stay out of the listing until you check them.</p>
+      <p className="fine">Filled from your item. AI guesses stay out of the listing until you check them.</p>
       {unconfirmed.length > 1 && (
-        <button type="button" className="mini-button" onClick={() => update((d) => unconfirmed.reduce((acc, a) => confirmAttribute(acc, a.key), d))}>
-          <Check size={13} /> I&apos;ve checked these AI guesses
+        <button type="button" className="mini-button block" onClick={() => update((d) => unconfirmed.reduce((acc, a) => confirmAttribute(acc, a.key), d))}>
+          <Check size={13} aria-hidden="true" /> These AI guesses are right
         </button>
       )}
       <div className="lx-spec-grid">
         {draft.attributes.map((a) => (
-          <div className="lx-spec" key={a.key}>
-            <label htmlFor={`spec-${a.key}`}>
-              {a.label}
-              {a.required && <span className="req" aria-label="required"> *</span>}
-            </label>
-            <input id={`spec-${a.key}`} value={a.value} placeholder={a.hint || (a.required ? "Needed" : "Optional")} onChange={(e) => update((d) => editAttribute(d, a.key, e.target.value))} />
-            <span className="lx-spec-prov"><AttributeProvenance a={a} update={update} /></span>
-          </div>
+          <label className="field" key={a.key}>
+            <span className="lx-spec-label">{a.label}{a.required ? "" : <small> · optional</small>}<Provenance a={a} update={update} /></span>
+            <input value={a.value} placeholder={a.hint || ""} onChange={(e) => update((d) => editAttribute(d, a.key, e.target.value))} />
+          </label>
         ))}
+        <label className="field" id="included">
+          <span className="lx-spec-label">What&apos;s included{draft.includedItems.value && !draft.includedItems.confirmed ? <small> · AI guess</small> : ""}</span>
+          <input
+            value={draft.includedItems.value}
+            placeholder='e.g. "Item only" or "controller, HDMI cable"'
+            onChange={(e) => update((d) => ({ ...d, includedItems: { value: e.target.value, source: e.target.value.trim() ? "user-confirmed" : "missing", confirmed: !!e.target.value.trim() } }))}
+          />
+        </label>
       </div>
-      <label className="lx-field" style={{ marginTop: 16 }} id="included">
-        <span>What&apos;s included {draft.includedItems.confirmed ? "· confirmed" : draft.includedItems.value ? "· AI guess" : ""}</span>
-        <input
-          value={draft.includedItems.value}
-          placeholder='e.g. "Item only" or "controller, HDMI cable"'
-          onChange={(e) => update((d) => ({ ...d, includedItems: { value: e.target.value, source: e.target.value.trim() ? "user-confirmed" : "missing", confirmed: !!e.target.value.trim() } }))}
-        />
-      </label>
     </div>
   );
 }
@@ -634,41 +567,33 @@ function EbayDetails({ draft, seller, ctx }: { draft: ListingDraft; seller: Ebay
   return (
     <div className="lx-ebay">
       <div className="lx-ebay-row">
-        <span className="lx-fact-label">Category</span>
-        <div>
-          <p className="lx-strong">{draft.ebay.categoryName ? draft.ebay.categoryName.split(/ [›>] /).slice(-3).join(" › ") : "Searching…"}</p>
-          <p className="lx-muted lx-small">Suggested by eBay from the product name. Search to change it.</p>
+        <span className="lx-ebay-label">Category</span>
+        <div className="stack-sm">
+          <p>{draft.ebay.categoryName ? draft.ebay.categoryName.split(/ [›>] /).slice(-3).join(" › ") : "Searching…"}</p>
           <RequirementFix issue={issue("ebay-category")} ctx={ctx} />
         </div>
       </div>
       <div className="lx-ebay-row">
-        <span className="lx-fact-label">eBay condition</span>
+        <span className="lx-ebay-label">eBay condition</span>
         <RequirementFix issue={issue("ebay-condition")} ctx={ctx} />
       </div>
-      {seller.rulesState === "loading" && <p className="lx-muted"><Loader2 size={13} className="spinner" /> Loading eBay&apos;s requirements for this category…</p>}
+      {seller.rulesState === "loading" && <p className="fine"><Loader2 size={13} className="spinner" aria-hidden="true" /> Checking eBay&apos;s requirements…</p>}
       {required.length > 0 && (
         <div className="lx-ebay-row">
-          <span className="lx-fact-label">Required specifics</span>
+          <span className="lx-ebay-label">Required by eBay</span>
           <ul className="lx-aspects">
-            {required.map((a) => {
-              const fromListing = aspects[a.name] && !draft.ebay.extraAspects?.[a.name];
-              return (
-                <li key={a.name}>
-                  <span>{a.name}</span>
-                  {fromListing ? (
-                    <span className="lx-aspect-val">{aspects[a.name][0]} <span className="lx-prov ok"><Check size={11} /> From your listing</span></span>
-                  ) : (
-                    <RequirementFix issue={issue(`ebay-aspect:${a.name}`)} ctx={ctx} />
-                  )}
-                </li>
-              );
-            })}
+            {required.map((a) => (
+              <li key={a.name}>
+                <span>{a.name}</span>
+                {aspects[a.name] && !draft.ebay.extraAspects?.[a.name] ? <span className="lx-aspect-val">{aspects[a.name][0]} <Check size={13} aria-label="From your listing" /></span> : <RequirementFix issue={issue(`ebay-aspect:${a.name}`)} ctx={ctx} />}
+              </li>
+            ))}
           </ul>
         </div>
       )}
       {recommended.length > 0 && (
-        <details className="lx-subtle">
-          <summary>Optional specifics eBay recommends ({recommended.filter((a) => !aspects[a.name]).length} empty)</summary>
+        <details className="details-link">
+          <summary>Optional specifics ({recommended.filter((a) => !aspects[a.name]).length} empty)</summary>
           <ul className="lx-aspects">
             {recommended.map((a) => (
               <li key={a.name}>
@@ -679,9 +604,9 @@ function EbayDetails({ draft, seller, ctx }: { draft: ListingDraft; seller: Ebay
           </ul>
         </details>
       )}
-      <details className="lx-subtle" id="ebay-photo-urls">
-        <summary>Add photos by URL (advanced)</summary>
-        <textarea rows={2} className="lx-input" value={draft.ebay.imageUrls.join("\n")} placeholder="https://… one per line" onChange={(e) => seller.setEbay({ imageUrls: e.target.value.split(/\s+/).map((u) => u.trim()).filter(Boolean) })} />
+      <details className="details-link" id="ebay-photo-urls">
+        <summary>Add photos by link</summary>
+        <textarea rows={2} value={draft.ebay.imageUrls.join("\n")} placeholder="https://… one per line" onChange={(e) => seller.setEbay({ imageUrls: e.target.value.split(/\s+/).map((u) => u.trim()).filter(Boolean) })} />
       </details>
     </div>
   );
@@ -690,18 +615,18 @@ function EbayDetails({ draft, seller, ctx }: { draft: ListingDraft; seller: Ebay
 function PhotoManager({ draft, update, photoUrls }: { draft: ListingDraft; update: Update; photoUrls: Record<string, string> }) {
   const selected = draft.photos.filter((p) => p.selected);
   return (
-    <div className="photo-select">
+    <div className="lx-photo-grid">
       {draft.photos.map((p, index) => (
-        <div key={p.id} className={`photo-card${p.selected ? " selected" : ""}`}>
-          {photoUrls[p.id] ? <img src={photoUrls[p.id]} alt={p.name} /> : <div className="thumb" aria-label="Photo unavailable" />}
-          <div className="row">
-            <label className="check-row" style={{ marginTop: 0, fontSize: 12 }}>
+        <div key={p.id} className={`lx-photo${p.selected ? " is-on" : ""}`}>
+          {photoUrls[p.id] ? <img src={photoUrls[p.id]} alt={p.name} /> : <div className="lx-photo-empty" aria-label="Photo unavailable" />}
+          <div className="lx-photo-bar">
+            <label className="lx-photo-use">
               <input type="checkbox" checked={p.selected} onChange={(e) => update((d) => ({ ...d, photos: d.photos.map((x) => (x.id === p.id ? { ...x, selected: e.target.checked } : x)) }))} />
-              <span>{p.selected && selected[0]?.id === p.id ? "Main photo" : "Use"}</span>
+              {p.selected && selected[0]?.id === p.id ? "Cover" : "Use"}
             </label>
             <span>
-              <button type="button" className="mini-button" aria-label="Move photo earlier" disabled={index === 0} onClick={() => update((d) => ({ ...d, photos: move(d.photos, index, -1) }))}><ArrowUp size={12} /></button>{" "}
-              <button type="button" className="mini-button" aria-label="Move photo later" disabled={index === draft.photos.length - 1} onClick={() => update((d) => ({ ...d, photos: move(d.photos, index, 1) }))}><ArrowDown size={12} /></button>
+              <button type="button" className="icon-button" aria-label="Move photo earlier" disabled={index === 0} onClick={() => update((d) => ({ ...d, photos: move(d.photos, index, -1) }))}><ArrowUp size={14} /></button>
+              <button type="button" className="icon-button" aria-label="Move photo later" disabled={index === draft.photos.length - 1} onClick={() => update((d) => ({ ...d, photos: move(d.photos, index, 1) }))}><ArrowDown size={14} /></button>
             </span>
           </div>
         </div>
@@ -715,28 +640,28 @@ function packageSummary(draft: ListingDraft, calculated: boolean) {
   if (s.whoPays === "local-pickup") return "Local pickup";
   const w = Number(s.weightLb || 0) + Number(s.weightOz || 0) / 16;
   if (w > 0) return `${Math.round(w * 100) / 100} lb packed`;
-  return calculated ? "Needed for calculated postage" : "Optional";
+  return calculated ? "Needed for your shipping policy" : "Optional";
 }
 
 function PackageEditor({ draft, update, calculated }: { draft: ListingDraft; update: Update; calculated: boolean }) {
   const s = draft.shipping;
   const set = (k: keyof ListingDraft["shipping"], v: string) => update((d) => ({ ...d, shipping: { ...d.shipping, [k]: v } }));
   return (
-    <div>
-      <p className="lx-muted">
+    <div className="stack-sm">
+      <p className="fine">
         {draft.marketplace === "ebay"
           ? calculated
             ? "Your shipping policy calculates postage, so eBay needs the packed weight and box size."
-            : "Optional: your eBay shipping policy sets postage. If you add them, weigh and measure the packed item; ResellAI never estimates these."
+            : "Optional. Your eBay shipping policy sets the postage."
           : "Optional. Mercari uses the packed weight for its prepaid label."}
       </p>
       <div className="lx-field-grid">
-        <label className="lx-field">
-          <span>Arrangement</span>
+        <label className="field">
+          Shipping
           <select value={s.whoPays} onChange={(e) => set("whoPays", e.target.value)}>
             <option value="">Not specified</option>
-            <option value="buyer">Buyer pays shipping</option>
-            <option value="seller">Free shipping (I pay)</option>
+            <option value="buyer">Buyer pays</option>
+            <option value="seller">Free shipping</option>
             <option value="local-pickup">Local pickup only</option>
           </select>
         </label>
@@ -750,8 +675,8 @@ function PackageEditor({ draft, update, calculated }: { draft: ListingDraft; upd
             ["handlingDays", "Handling (days)"],
           ] as const
         ).map(([k, label]) => (
-          <label className="lx-field" key={k}>
-            <span>{label}</span>
+          <label className="field" key={k}>
+            {label}
             <input inputMode="decimal" value={s[k]} onChange={(e) => set(k, e.target.value)} />
           </label>
         ))}
@@ -762,20 +687,18 @@ function PackageEditor({ draft, update, calculated }: { draft: ListingDraft; upd
 
 function ExportTools({ draft }: { draft: ListingDraft }) {
   const exported = exportListing(draft);
-  const profile = marketplaces[draft.marketplace];
   return (
-    <div>
-      <p className="lx-muted">{profile.limitNote}</p>
-      <div className="lx-chips">
+    <div className="stack-sm">
+      <div className="lx-export-actions">
         <CopyButton text={exported.title} label="Copy title" />
         <CopyButton text={exported.description} label="Copy description" />
         <CopyButton text={exported.price} label="Copy price" />
         <CopyButton text={exported.text} label="Copy everything" />
         <button type="button" className="mini-button" onClick={() => downloadText(`${(draft.title.value || "listing").replace(/[^a-z0-9]+/gi, "-").slice(0, 60)}.txt`, exported.text)}>
-          <Download size={14} /> Download .txt
+          <Download size={14} aria-hidden="true" /> Download
         </button>
       </div>
-      <div className="export-box" aria-label="Listing export preview">{exported.text}</div>
+      <pre className="lx-export">{exported.text}</pre>
     </div>
   );
 }

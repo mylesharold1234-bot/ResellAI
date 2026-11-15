@@ -1,5 +1,4 @@
 import { normalizeProduct, recognizableName, type FieldSources } from "./product-profile";
-import type { FacebookLocation } from "./facebook";
 import {
   emptyMatchDetails,
   parseMatchDetails,
@@ -17,7 +16,6 @@ export type IdentificationState = {
   sources: FieldSources;
   photos: ProductPhoto[];
   details: MatchDetails;
-  facebookLocation: FacebookLocation | null;
   confirmationId: string | null;
   draft: Identification | null;
   confirmed: Identification | null;
@@ -28,7 +26,6 @@ export const emptyIdentificationState: IdentificationState = {
   sources: {},
   photos: [],
   details: emptyMatchDetails,
-  facebookLocation: null,
   confirmationId: null,
   draft: null,
   confirmed: null,
@@ -40,7 +37,6 @@ export type IdentificationAction =
   | { type: "edit"; identification: Identification }
   | { type: "confirm"; requestId?: string; mode?: "refined" | "general" }
   | { type: "details"; details: MatchDetails }
-  | { type: "facebook-location"; location: FacebookLocation | null }
   | { type: "reset" };
 export function identificationReducer(
   state: IdentificationState,
@@ -50,7 +46,6 @@ export function identificationReducer(
     case "photos":
       return {
         ...emptyIdentificationState,
-        facebookLocation: state.facebookLocation,
         photos: action.photos,
       };
     case "identified":
@@ -96,8 +91,6 @@ export function identificationReducer(
     }
     case "details":
       return { ...state, details: action.details };
-    case "facebook-location":
-      return { ...state, facebookLocation: action.location };
     case "reset":
       return emptyIdentificationState;
   }

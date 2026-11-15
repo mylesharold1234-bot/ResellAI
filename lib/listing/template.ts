@@ -176,6 +176,5 @@ export function marketplaceRecommendations(draft: ListingDraft, marketplace: Lis
     if (draft.category === "footwear") tips.push("On eBay, eligible sneakers sold at $150 or more may go through Authenticity Guarantee; that's applied by eBay, not stated in your listing.");
   }
   if (marketplace === "mercari") tips.push("Mercari buyers filter by condition; choose the closest Mercari condition grade and explain any wear in the description.");
-  if (marketplace === "facebook") tips.push("For local sales, meet in a public place and accept payment before handing over the item.");
   return tips;
 }

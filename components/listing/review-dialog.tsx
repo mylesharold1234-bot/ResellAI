@@ -28,12 +28,15 @@ export function ReviewDialog({
   blockers,
   optional,
   mainPhoto,
+  focus = "review",
   onClose,
 }: {
   ctx: FixContext;
   blockers: ReadinessIssue[];
   optional: ReadinessIssue[];
   mainPhoto?: string;
+  /** "fix" opens straight onto the first missing detail. */
+  focus?: "review" | "fix";
   onClose: () => void;
 }) {
   const { draft, seller } = ctx;
@@ -48,7 +51,11 @@ export function ReviewDialog({
   useEffect(() => {
     const el = ref.current;
     const previous = document.activeElement as HTMLElement | null;
-    el?.querySelector<HTMLElement>("h2")?.focus();
+    const firstFix = focus === "fix" ? el?.querySelector<HTMLElement>(".lx-review-reqs input, .lx-review-reqs select, .lx-review-reqs button, .lx-review-reqs a") : null;
+    if (firstFix) {
+      el?.querySelector(".lx-review-reqs")?.scrollIntoView({ block: "start" });
+      firstFix.focus({ preventScroll: true });
+    } else el?.querySelector<HTMLElement>("h2")?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && seller?.phase !== "uploading" && seller?.phase !== "publishing") onClose();
       if (e.key !== "Tab" || !el) return;
@@ -71,6 +78,8 @@ export function ReviewDialog({
       document.body.style.overflow = "";
       previous?.focus?.();
     };
+    // Focus is set once when the dialog opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onClose, seller?.phase]);
 
   const aspects = useMemo(() => buildAspects(draft, seller?.rules?.aspects), [draft, seller?.rules]);

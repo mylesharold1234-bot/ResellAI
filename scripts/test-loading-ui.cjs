@@ -31,7 +31,6 @@ function listingPayload(prices,provider="ebay") {
     await route.fulfill({status,json:body});
    });
   }
-  await page.route('**/api/marketplaces/facebook',route=>route.fulfill({json:{enabled:false,keyConfigured:false}}));
   await page.goto(base+'/analyze');
   const photo=page.getByAltText('Uploaded product photo 1');
   await page.getByLabel('Choose product photos').setInputFiles({name:'test.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j7a0AAAAASUVORK5CYII=','base64')});

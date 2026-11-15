@@ -98,7 +98,8 @@ export function parseDraft(value: unknown): ListingDraft {
     v.schemaVersion === 1 &&
     typeof v.createdAt === "string" &&
     typeof v.updatedAt === "string" &&
-    ["ebay", "mercari", "facebook", "other"].includes(v.marketplace) &&
+    // "facebook" is accepted from drafts saved before Facebook Marketplace was removed (mapped below).
+    ["ebay", "mercari", "facebook", "other"].includes(v.marketplace as string) &&
     !!v.identification &&
     Array.isArray(v.attributes) &&
     !!v.condition &&
@@ -110,5 +111,6 @@ export function parseDraft(value: unknown): ListingDraft {
     !!v.shipping &&
     !!v.ebay;
   if (!ok) throw new Error("This saved draft is unreadable or from an unsupported version.");
-  return v;
+  // Facebook Marketplace is no longer offered. Its drafts keep every field and open as "Other marketplace".
+  return (v.marketplace as string) === "facebook" ? { ...v, marketplace: "other" } : v;
 }
