@@ -8,9 +8,12 @@ import {
 export function EbayProceeds({
   askingPrice,
   isSneaker,
+  ownPrice = false,
 }: {
   askingPrice: number | null;
   isSneaker: boolean;
+  /** True when askingPrice is the price the seller typed, not a recommendation. */
+  ownPrice?: boolean;
 }) {
   const [profile, setProfile] = useState("");
   const [amounts, setAmounts] = useState(["", "", "", ""]);
@@ -40,7 +43,7 @@ export function EbayProceeds({
     <div className="panel block">
       <h2>Seller proceeds scenario</h2>
       <p className="muted">
-        Conditional on a sale at the suggested asking price. Not a predicted
+        {ownPrice ? "Conditional on a sale at your price." : "Conditional on a sale at the suggested asking price."} Not a predicted
         sale or profit.
       </p>
       <label className="notes-label">
@@ -105,7 +108,7 @@ export function EbayProceeds({
             <div className="info-card">
               <p>
                 {askingPrice === null
-                  ? "A supported asking-price recommendation is required before computing proceeds."
+                  ? "Enter your price above, or wait for a supported asking-price recommendation, to compute proceeds."
                   : "Enter all four nonnegative amounts to calculate this scenario."}
               </p>
             </div>

@@ -135,6 +135,8 @@ export type DraftInput = {
   ebay: MarketEvidence;
   mercari: MarketEvidence;
   marketplace?: ListingMarketplace;
+  /** A price the seller typed on the report. It wins over any recommendation and is marked as theirs. */
+  manualPrice?: number | null;
 };
 
 /** Create a listing draft from the confirmed analysis. Deterministic: no AI call, no invented values. */
@@ -152,7 +154,9 @@ export function createListingDraft(input: DraftInput): ListingDraft {
       : "user-confirmed";
   const pricing: ListingPricing = {
     evidence,
-    ...initialPrice(evidence, marketplace, condition.grade),
+    ...(input.manualPrice != null && Number.isFinite(input.manualPrice) && input.manualPrice > 0
+      ? { price: Math.round(input.manualPrice * 100) / 100, priceSource: "manual" as const, priceProvider: null }
+      : initialPrice(evidence, marketplace, condition.grade)),
     purchaseCost: "",
     feeMode: marketplace === "ebay" && category === "footwear" ? "ebay-athletic-sneakers" : "custom",
     feePercent: "",

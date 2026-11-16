@@ -19,6 +19,30 @@ export function supportedPrice(rec: Recommendation | undefined | null) {
 }
 
 /**
+ * A broader asking-price reference: same model, condition and colors across sizes. Deliberately styled and
+ * worded so it can never be read as a price for the seller's own size.
+ */
+export function BroaderReference({ reference, marketplace, size }: { reference: NonNullable<Recommendation["marketReference"]>; marketplace: "eBay" | "Mercari"; size?: string }) {
+  const s = size?.trim();
+  return (
+    <aside className="market-ref" aria-label={`${marketplace} broader asking-price reference`}>
+      <p className="market-ref-head">
+        <span className="pill">Reference only</span>
+        <span>All sizes · asking prices</span>
+      </p>
+      <p className="market-ref-range">
+        Most ask {whole(reference.range.low)}–{whole(reference.range.high)}
+        <span className="muted"> · median {dollars(reference.median)} · {reference.count} listings</span>
+      </p>
+      <p className="fine">
+        {s ? `Not a price for size ${s}. ` : "Not a price for your exact item. "}
+        These listings match the model, colors and condition, but their sizes weren&apos;t checked. They&apos;re current asking prices, not sales.
+      </p>
+    </aside>
+  );
+}
+
+/**
  * One marketplace's price, in plain language. When no price is supported, the seller sees why and what helps;
  * the engine's technical evidence (cohorts, exclusions, diagnostics) is only shown in the developer view.
  */
@@ -90,6 +114,7 @@ export function PricingPanel({
             {explanation.detail ? ` ${explanation.detail}` : ""}
           </p>
           {explanation.suggestion && <p className="market-hint">{explanation.suggestion}</p>}
+          {!expired && rec?.marketReference && <BroaderReference reference={rec.marketReference} marketplace={marketplace} size={details?.size} />}
         </>
       )}
       {error && <p className="error" role="alert">{error}</p>}

@@ -11,7 +11,7 @@ import type { MarketEvidence } from "../../lib/listing/pricing";
  * Entry point from the resale report. Snapshots the confirmed item, its photos and whatever pricing
  * evidence has loaded into a new listing draft. Makes no AI or marketplace calls.
  */
-export function CreateListingButton({ ebay, mercari }: { ebay: MarketEvidence; mercari: MarketEvidence }) {
+export function CreateListingButton({ ebay, mercari, manualPrice = null }: { ebay: MarketEvidence; mercari: MarketEvidence; manualPrice?: number | null }) {
   const { state } = useIdentification();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -32,6 +32,7 @@ export function CreateListingButton({ ebay, mercari }: { ebay: MarketEvidence; m
         photos: state.photos.map((p) => ({ id: p.id, name: p.name })),
         ebay,
         mercari,
+        manualPrice,
       });
       for (const photo of state.photos) {
         const blob = photo.file ?? (await (await fetch(photo.url)).blob());

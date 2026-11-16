@@ -19,17 +19,19 @@ export function MarketplaceComparison({ebay,mercari,now}:{ebay:PricingEvidence|n
  </section>;
 }
 
-export function MarketplaceProfit({ebay,mercari,now}:{ebay:PricingEvidence|null;mercari:PricingEvidence|null;now:number}){
+export function MarketplaceProfit({ebay,mercari,now,manualPrice=null}:{ebay:PricingEvidence|null;mercari:PricingEvidence|null;now:number;manualPrice?:number|null}){
  const [market,setMarket]=useState<Market>("eBay");
  const [inputs,setInputs]=useState<Record<Market,Inputs>>({"eBay":empty,Mercari:empty});
  const selected=market==="eBay"?ebay:mercari;
  const rec=selected?.recommendation;
  const expiry=selected?.result.expiresAt;
- const price=expiry&&Date.parse(expiry)>now?listingDisplayPrice(rec?.suggestedListingPrice??null,rec?.indicativeAskingRange??null):null;
+ const supported=expiry&&Date.parse(expiry)>now?listingDisplayPrice(rec?.suggestedListingPrice??null,rec?.indicativeAskingRange??null):null;
+ // The seller's own price, when set, is the scenario price; otherwise the current supported recommendation.
+ const price=manualPrice??supported;
  const estimate=price===null?null:marketplaceProfitScenario(price,inputs[market]);
  return <section className="panel block" aria-label="Profit calculator">
    <h2>Profit calculator</h2>
-   <p className="muted">A scenario if the item sells at the current asking recommendation. Enter the fees applicable to your account and listing.</p>
+   <p className="muted">A scenario if the item sells at your price, or at the current asking recommendation when you haven&apos;t set one. Enter the fees applicable to your account and listing.</p>
    <label className="notes-label">Marketplace <select value={market} onChange={e=>setMarket(e.target.value as Market)}><option>eBay</option><option>Mercari</option></select></label>
    <div className="calculator-inputs block">{Object.entries(fields).map(([key,label])=><label key={key}>{label} ($)
     <input type="number" min="0" step="0.01" value={inputs[market][key as keyof Inputs]} onChange={e=>setInputs(old=>({...old,[market]:{...old[market],[key]:e.target.value}}))}/>
@@ -39,6 +41,6 @@ export function MarketplaceProfit({ebay,mercari,now}:{ebay:PricingEvidence|null;
     <div><span>Hypothetical sale price</span><strong>{dollars(price)}</strong></div>
     <div><span>Proceeds after specified selling costs</span><strong>{dollars(estimate.proceeds)}</strong></div>
     <div><span>Net profit after purchase cost</span><strong>{dollars(estimate.profit)}</strong></div>
-   </div>:<p role="status">{price===null?"Profit unavailable without a current supported listing price for "+market+".":"Profit unavailable until every fee and cost has a valid amount."}</p>}
+   </div>:<p role="status">{price===null?"Enter your price above to estimate profit. There's no supported "+market+" price yet.":"Profit unavailable until every fee and cost has a valid amount."}</p>}
  </section>;
 }

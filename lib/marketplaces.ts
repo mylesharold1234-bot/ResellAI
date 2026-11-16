@@ -38,6 +38,8 @@ export type Comparable = {
   condition: string;
   conditionId: string;
   url: string;
+  /** Listing photo for display only (eBay's own image host). Never used for matching or pricing. */
+  image?: string;
   observedAt: string;
   shipping: number | null;
   seller: string | null;

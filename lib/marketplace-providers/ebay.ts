@@ -28,6 +28,21 @@ function money(value: unknown): number | null {
   const n = Number(value.value);
   return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
 }
+/** The listing's own photo, only from eBay's image host over HTTPS. Display only; never used for matching. */
+export function listingImage(row: Record<string, unknown>): string | null {
+  const thumbs = Array.isArray(row.thumbnailImages) ? row.thumbnailImages : [];
+  const candidates = [object(row.image) ? row.image.imageUrl : null, ...thumbs.map((t) => (object(t) ? t.imageUrl : null))];
+  for (const raw of candidates) {
+    if (typeof raw !== "string" || raw.length > 500) continue;
+    try {
+      const u = new URL(raw);
+      if (u.protocol === "https:" && !u.username && !u.password && !u.port && (u.hostname === "i.ebayimg.com" || u.hostname.endsWith(".ebayimg.com"))) return u.href;
+    } catch {
+      /* not a URL */
+    }
+  }
+  return null;
+}
 export function normalizeEbaySearch(
   body: unknown,
   environment: "production" | "sandbox",
@@ -125,6 +140,7 @@ export function normalizeEbaySearch(
           .map((c) => String(c.categoryName || ""))
           .filter(Boolean)
       : [];
+    const image = listingImage(row);
     result.push({
       id: row.itemId,
       title: row.title.trim(),
@@ -134,6 +150,7 @@ export function normalizeEbaySearch(
       condition: typeof row.condition === "string" ? row.condition.slice(0, 200) : "Not specified",
       conditionId: typeof conditionId === "string" ? conditionId : "",
       url: url.href,
+      ...(image ? { image } : {}),
       observedAt,
       shipping,
       seller,

@@ -17,6 +17,8 @@ import { MarketplaceComparison, MarketplaceProfit } from "./marketplace-intellig
 import type {PricingEvidence} from "../lib/pricing-intelligence";
 import { MercariPricing } from "./mercari-pricing";
 import { CreateListingButton } from "./listing/create-listing-button";
+import { ComparableBrowser } from "./comparable-browser";
+import { listingCounts, type BrowserEvidence } from "../lib/comparable-browser";
 type ReportData = {
   result: MarketplaceResult;
   recommendation: ReturnType<typeof recommend>;
@@ -90,6 +92,10 @@ export function LiveReport() {
       : null;
   const debug = useDebugView();
   const [refineOpen, setRefineOpen] = useState(false);
+  // The seller's own price. Always allowed, with or without a recommendation; never replaced by one.
+  const [manualText, setManualText] = useState("");
+  const manualNumber = Number(manualText.replace(/[$,\s]/g, ""));
+  const manualPrice = manualText.trim() && Number.isFinite(manualNumber) && manualNumber > 0 && manualNumber <= 100000 ? Math.round(manualNumber * 100) / 100 : null;
   if (!state.confirmed)
     return (
       <section className="wrap workspace narrow">
@@ -116,6 +122,13 @@ export function LiveReport() {
   const best = ebayPrice !== null ? { price: ebayPrice, market: "eBay", rec: recommendation } : mercariPrice !== null ? { price: mercariPrice, market: "Mercari", rec: mercariEvidence?.recommendation } : null;
   const missingKeyDetails = !d.size || !d.condition;
   const sized = /sneaker|shoe|footwear|boot|apparel|clothing|shirt|hoodie|jacket|pants|dress/i.test(`${item.category || ""} ${item.productName || ""}`);
+  const hasReference = !expired && (!!recommendation?.marketReference || !!mercariEvidence?.recommendation.marketReference);
+  const browse: BrowserEvidence[] = [
+    ...(result && result.status !== "unavailable" && recommendation ? [{ provider: "ebay" as const, result, recommendation }] : []),
+    ...(mercariEvidence && mercariEvidence.result.status !== "unavailable" ? [{ provider: "mercari" as const, result: mercariEvidence.result, recommendation: mercariEvidence.recommendation }] : []),
+  ];
+  const counts = browse.map((b) => ({ market: b.provider === "ebay" ? "eBay" : "Mercari", ...listingCounts(b.result, b.recommendation) }));
+  const usedTotal = counts.reduce((n, c) => n + c.used, 0);
 
   return (
     <section className="wrap workspace report">
@@ -142,14 +155,25 @@ export function LiveReport() {
           ) : (
             <>
               <p className="price-value is-empty">Not enough data</p>
-              <p className="muted">We couldn&apos;t find enough similar listings to suggest a price{missingKeyDetails && sized ? ". Adding the size and condition usually helps." : "."}</p>
+              <p className="muted">We couldn&apos;t find enough similar listings{d.size ? ` in size ${d.size}` : ""} to suggest a price{missingKeyDetails && sized ? ". Adding the size and condition usually helps." : "."}</p>
+              {hasReference && <p className="muted">A broader asking-price reference is shown alongside. It isn&apos;t a price for your {d.size ? "size" : "exact item"}.</p>}
               {missingKeyDetails && sized && (
                 <button type="button" className="text-link" onClick={() => setRefineOpen(true)}>Add size and condition</button>
               )}
             </>
           )}
+          <div className="your-price">
+            <label htmlFor="your-price">Your price</label>
+            <div className="your-price-input">
+              <span aria-hidden="true">$</span>
+              <input id="your-price" inputMode="decimal" autoComplete="off" placeholder={best ? best.price.toFixed(2) : "0.00"} value={manualText} onChange={(e) => setManualText(e.target.value)} aria-describedby="your-price-help" aria-invalid={!!manualText.trim() && manualPrice === null} />
+            </div>
+            <p id="your-price-help" className="fine">
+              {manualText.trim() && manualPrice === null ? "Enter a price like 65 or 65.00." : best ? "Optional. Leave blank to use the suggested price." : "Optional. Set your own price, even without a suggestion. It's used for your listing and profit estimate."}
+            </p>
+          </div>
           <div className="price-cta">
-            <CreateListingButton ebay={searchIdentification === state.confirmed ? data : null} mercari={mercariEvidence} />
+            <CreateListingButton ebay={searchIdentification === state.confirmed ? data : null} mercari={mercariEvidence} manualPrice={manualPrice} />
           </div>
         </div>
 
@@ -191,31 +215,19 @@ export function LiveReport() {
           </div>
         </details>
 
-        {result && result.status !== "unavailable" && (
+        {!!browse.length && (
           <details className="disclosure">
-            <summary>Listings we compared <small>{stats ? `${stats.count} used for the price` : `${result.comparables.length} found`}</small></summary>
+            <summary>Listings we compared <small>{counts.map((c) => `${c.market} ${c.checked} checked`).join(" · ")} · {usedTotal ? `${usedTotal} used for the price` : "none usable for a price"}</small></summary>
             <div className="disclosure-body">
-              {stats && (
-                <div className="market-stats">
+              {/* Only the listings behind an actual eBay price; never a blocked or broader sample. */}
+              {stats && ebayPrice !== null && (
+                <div className="market-stats" aria-label="eBay listings used for the price">
                   {[["Typical", stats.median], ["Lowest", stats.lowest], ["Highest", stats.highest]].map(([label, value]) => (
                     <div key={String(label)}><span className="muted">{label}</span><strong>{dollars(value as number)}</strong></div>
                   ))}
                 </div>
               )}
-              <ul className="comp-list">
-                {[...result.comparables]
-                  .filter((c) => (c.matchTier || "exact") !== "related" && c.priceEligible !== false)
-                  .sort((a, b) => (b.quality?.score ?? 0) - (a.quality?.score ?? 0) || a.id.localeCompare(b.id))
-                  .slice(0, 12)
-                  .map((c) => (
-                    <li key={c.id}>
-                      <a href={c.url} target="_blank" rel="noopener noreferrer">{c.title}</a>
-                      <span className="comp-meta">{c.condition}</span>
-                      <strong>{dollars(c.price)}</strong>
-                    </li>
-                  ))}
-              </ul>
-              <p className="fine">Current eBay asking prices. Listings can change or end at any time.</p>
+              <ComparableBrowser sources={browse} size={d.size} />
             </div>
           </details>
         )}
@@ -223,8 +235,8 @@ export function LiveReport() {
         <details className="disclosure">
           <summary>Profit calculator <small>Estimate what you&apos;ll keep</small></summary>
           <div className="disclosure-body">
-            <MarketplaceProfit ebay={data} mercari={mercariEvidence} now={clock} />
-            {/sneaker|shoe|footwear/i.test(state.confirmed.category || "") && <EbayProceeds key={key + String(suggested)} askingPrice={suggested} isSneaker />}
+            <MarketplaceProfit ebay={data} mercari={mercariEvidence} now={clock} manualPrice={manualPrice} />
+            {/sneaker|shoe|footwear/i.test(state.confirmed.category || "") && <EbayProceeds key={key + String(manualPrice ?? suggested)} askingPrice={manualPrice ?? suggested} ownPrice={manualPrice !== null} isSneaker />}
           </div>
         </details>
 

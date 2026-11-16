@@ -19,12 +19,17 @@ test('separate broader reference never populates recommendation or profit for ei
   assert.equal(rec.suggestedListingPrice,null);assert.equal(rec.eligibleCount,0);
   assert.equal(rec.marketReference?.median,70);assert.equal(rec.marketReference.count,3);
   assert.equal(rec.marketReference.kind,'broader-market-asking-reference');
-  const html=renderToStaticMarkup(createElement(PricingPanel,{recommendation:rec,expired:false}));
-  assert.match(html,/market-price is-empty/);assert.match(html,/No price yet/);assert.doesNotMatch(html,/Price found|\$70/);
+  const html=renderToStaticMarkup(createElement(PricingPanel,{recommendation:rec,expired:false,details:{size:'10',condition:'new'}}));
+  // No price is shown. The broader median appears only inside the separate, labeled reference card.
+  assert.match(html,/market-price is-empty/);assert.match(html,/No price yet/);assert.doesNotMatch(html,/Price found/);
+  assert.doesNotMatch(html,/class="market-price">\$/);
+  const ref=/<aside class="market-ref"[\s\S]*?<\/aside>/.exec(html)?.[0]||'';
+  assert.match(ref,/Reference only/);assert.match(ref,/Not a price for size 10/);assert.match(ref,/\$70/);assert.match(ref,/asking prices, not sales/);
+  assert.doesNotMatch(html.replace(ref,''),/\$70/);
   const profit=renderToStaticMarkup(createElement(MarketplaceProfit,{ebay:{result,recommendation:rec},mercari:null,now}));
-  assert.match(profit,/Profit unavailable without a current supported listing price/);assert.doesNotMatch(profit,/Hypothetical sale price/);
+  assert.match(profit,/Enter your price above to estimate profit/);assert.doesNotMatch(profit,/Hypothetical sale price/);
   const expired=renderToStaticMarkup(createElement(PricingPanel,{recommendation:rec,expired:true}));
-  assert.doesNotMatch(expired,/Broader market asking-price reference/);
+  assert.doesNotMatch(expired,/Reference only|market-ref/);
  }
 });
 test('broader reference preserves freshness, model, condition, variant, variation and seller safeguards',()=>{
