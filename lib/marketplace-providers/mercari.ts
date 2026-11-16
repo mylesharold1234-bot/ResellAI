@@ -2,7 +2,7 @@ import {retrievalDiagnostics,sufficientSearchEvidence} from "../retrieval-diagno
 import {scoreComparable} from "../comparable-quality";
 import {matchMercari} from "../mercari-matching";
 import {searchPlan} from "../ebay-search";
-import type {Comparable,MarketplaceProvider,MarketplaceResult,ProductQuery} from "../marketplaces";
+import type {Comparable,ListingAspects,MarketplaceProvider,MarketplaceResult,ProductQuery} from "../marketplaces";
 
 const endpoint = "https://api.api.sh/mercari/v1/search";
 const limit = 100;
@@ -13,6 +13,18 @@ type Row = Record<string,unknown>;
 const object = (x: unknown): x is Row => !!x && typeof x === "object" && !Array.isArray(x);
 const conditions: Record<string,string> = {new:"1000","like new":"2990",good:"3000",fair:"5000",poor:"6000"};
 
+/**
+ * Mercari's own size field ("10 (43)": US size with the EU size in parentheses) and its top-level
+ * Men/Women/Kids category. Ranges ("5.5 (38.5) and below"), toddler sizes and "Not Specified" stay unknown.
+ */
+export function mercariAspects(x:Row):ListingAspects|null{
+  const out:ListingAspects={source:"mercari-listing"};
+  const size=typeof x.size==="string"?/^\s*(\d{1,2}(?:\.5)?)\s*(?:\(\d{2}(?:\.5)?\))?\s*$/.exec(x.size):null;
+  if(size){out.size=String(Number(size[1]));out.sizeSystem="US";}
+  const top=Array.isArray(x.categories)&&object(x.categories[0])&&typeof x.categories[0].name==="string"?x.categories[0].name.trim():"";
+  if(/^(?:Men|Women|Kids)$/.test(top))out.department=top;
+  return out.size||out.department?out:null;
+}
 export function normalizeMercari(body:unknown,stamp:string) {
   if(!object(body)||body.success===false||body.country!=="US"||!Array.isArray(body.items)||body.items.length>limit)
     throw new MercariError("Mercari returned an unexpected response.");
@@ -42,7 +54,7 @@ export function normalizeMercari(body:unknown,stamp:string) {
       condition:conditionLabel,conditionId,url:url.origin+url.pathname,observedAt:stamp,shipping:x.free_shipping===true?0:null,
       seller:typeof x.seller_id==="string"&&x.seller_id?x.seller_id.slice(0,100):null,
       categories:Array.isArray(x.categories)?x.categories.filter(object).flatMap(c=>typeof c.name==="string"?[c.name.slice(0,80)]:[]).slice(0,10):[],
-      matchReasons:[],warnings:[]});
+      matchReasons:[],warnings:[],...(()=>{const aspects=mercariAspects(x);return aspects?{aspects}:{};})()});
   }
   const credits=typeof body.credits_used==="number"&&Number.isSafeInteger(body.credits_used)&&body.credits_used>=0?body.credits_used:null;
   return {items,examined:body.items.length,duplicateRows,credits,providerCached:body.cached===true};

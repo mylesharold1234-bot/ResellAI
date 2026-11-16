@@ -1,5 +1,6 @@
 import {wearablePrimaryText} from "./listing-primary-text";
-import type { Comparable, ProductQuery } from "./marketplaces";
+import type { Comparable, MatchDetails, ProductQuery } from "./marketplaces";
+import { styleCodesIn, styleGroup, type SizingGroup } from "./style-codes";
 export const normalize = (text: string) =>
   text
     .toLowerCase()
@@ -83,7 +84,7 @@ export function matchComparable(
   let exclusionReason = "unsupported_or_accessory";
   const fail = () => ({ matches: false, reasons: [...reasons], warnings: [...warnings], exclusionReason });
   if (
-    /\b(replica|rep|fake|inspired|custom|customized|customised)\b/.test(title)
+    /\b(replica|rep|fake|inspired|custom|customized|customised|by you|nike id|nikeid)\b/.test(title)
   )
     return fail();
   if (
@@ -199,59 +200,129 @@ export function matchComparable(
     warnings.push("Condition not restricted; prices may mix condition grades");
   exclusionReason = "size_or_sizing_group_unverified";
   if (d.size) {
-    const escaped = d.size.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const sizeMatch = new RegExp(
-      `\\b(?:size|sz|us|uk|eu)\\s*${escaped}(?![\\d.])`,
-    ).test(title);
-    if(/\b(sizes|choose size|select size|multiple sizes)\b/.test(title)){
-      exclusionReason="size_selection_unverified";return fail();
-    }
-    if(!sizeMatch){
-      exclusionReason=/\b(?:size|sz|us|uk|eu)\s*\d/.test(title)?"size_mismatch":"size_unverified";
+    const size = sizeEvidence(item, d, title, i.model || i.productName || "");
+    if (!size.ok) {
+      exclusionReason = size.reason;
       return fail();
     }
-    if(d.sizeSystem==="US Men"||d.sizeSystem==="US Women"||d.sizeSystem==="US Youth"){
-      const required=d.sizeSystem==="US Men"?/\b(men|mens)\b/:d.sizeSystem==="US Women"?/\b(women|womens)\b/:/\b(youth|gs|kids|boys|girls)\b/;
-      const opposite=d.sizeSystem==="US Men"?/\b(women|womens|youth|gs|kids)\b/:d.sizeSystem==="US Women"?/\b(men|mens|youth|gs|kids)\b/:/\b(men|mens|women|womens)\b/;
-      if(opposite.test(title)){exclusionReason="sizing_group_mismatch";return fail();}
-      if(!required.test(title)){exclusionReason="sizing_group_unverified";return fail();}
-    }
-    if (
-      d.sizeSystem === "UK" &&
-      !new RegExp(`\\buk\\s*${escaped}(?![\\d.])`).test(title)
-    )
-      return fail();
-    if (
-      d.sizeSystem === "EU" &&
-      !new RegExp(`\\beu\\s*${escaped}(?![\\d.])`).test(title)
-    )
-      return fail();
-    if(d.sizeSystem.startsWith("US")&&!/\bus\b/.test(title)){
-      exclusionReason=/\b(?:uk|eu)\b/.test(title)?"sizing_system_mismatch":"sizing_system_unverified";return fail();
-    }
-    if (
-      d.sizeSystem.startsWith("US") &&
-      /\b(uk|eu)\b/.test(title) &&
-      !new RegExp(`\\bus\\s*${escaped}(?![\\d.])`).test(title)
-    )
-      return fail();
-    reasons.push("Size and sizing group evidenced in title");
+    reasons.push(size.reason);
   } else warnings.push("Size not restricted");
   exclusionReason = "packaging_unverified_or_mismatch";
+  // eBay's own condition "New with box" / "New without box" is structured packaging evidence.
+  const ebayWithBox = item.conditionId === "1000" && /\bnew with box\b/i.test(item.condition);
+  const ebayWithoutBox = item.conditionId === "1500" && /\bnew without box\b/i.test(item.condition);
   if (d.packaging === "original") {
-    if (
-      !/\b(with box|original box|og box|new in box|nib)\b/.test(title) ||
-      /\b(no box|without box|replacement box)\b/.test(title)
-    )
-      return fail();
-    reasons.push("Original packaging indicated in title");
+    const titleBox = /\b(with box|original box|og box|new in box|nib)\b/.test(title);
+    if ((!titleBox && !ebayWithBox) || ebayWithoutBox || /\b(no box|without box|replacement box)\b/.test(title)) return fail();
+    reasons.push(titleBox ? "Original packaging indicated in title" : "Original box stated in eBay's condition (New with box)");
   }
   if (d.packaging === "none") {
-    if (!/\b(no box|without box)\b/.test(title)) return fail();
-    reasons.push("No-box packaging indicated in title");
+    const titleNoBox = /\b(no box|without box)\b/.test(title);
+    if ((!titleNoBox && !ebayWithoutBox) || ebayWithBox) return fail();
+    reasons.push(titleNoBox ? "No-box packaging indicated in title" : "No box stated in eBay's condition (New without box)");
   }
   if (!d.packaging) warnings.push("Packaging not checked");
   if (shoe && !d.productIdentifier) warnings.push("Exact release unverified; similar-listing evidence only unless other verified attributes establish the variant");
   return { matches: true, reasons, warnings };
 }
 
+
+const GROUP_WORDS: Record<SizingGroup, RegExp> = {
+  men: /\b(men|mens)\b/,
+  women: /\b(women|womens|wmns)\b/,
+  youth: /\b(youth|gs|kids|boys|girls|grade school)\b/,
+};
+const wantedGroup = (system: string): SizingGroup | null =>
+  system === "US Men" ? "men" : system === "US Women" ? "women" : system === "US Youth" ? "youth" : null;
+const departmentGroup = (department?: string): SizingGroup | null => {
+  const d = (department || "").toLowerCase();
+  if (/unisex/.test(d)) return null;
+  if (/\b(women|womens|ladies)\b/.test(d)) return "women";
+  if (/\b(men|mens)\b/.test(d)) return "men";
+  if (/\b(boys|girls|kids|youth|unisex kids)\b/.test(d)) return "youth";
+  return null;
+};
+/** US "10M" / "10M/11.5W" notation: a men's US size, with the women's conversion after the slash. */
+const menNotation = (title: string, size?: string) =>
+  new RegExp(`\\b${size ? size.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") : "\\d{1,2}(?:\\.5)?"}\\s*m\\b`).test(title);
+
+/**
+ * Which sizing groups a listing's evidence points to: the title's words, men's "10M" notation, a known
+ * style code, and eBay's Department item specific. Several groups means the listing is ambiguous.
+ */
+export function listingSizingGroups(item: Comparable, title: string, product: string): Set<SizingGroup> {
+  const groups = new Set<SizingGroup>();
+  // "Women's 12 / Men's 10.5" style dual labels name both; "women" contains "men", so test women first.
+  const withoutWomen = title.replace(/\b(women|womens|wmns)\b/g, " ");
+  if (GROUP_WORDS.women.test(title)) groups.add("women");
+  if (GROUP_WORDS.men.test(withoutWomen) || menNotation(title)) groups.add("men");
+  if (GROUP_WORDS.youth.test(title)) groups.add("youth");
+  const fromCode = styleGroup([item.title, item.aspects?.styleCode || ""].join(" "), product);
+  if (fromCode) groups.add(fromCode);
+  const fromDepartment = departmentGroup(item.aspects?.department);
+  if (fromDepartment) groups.add(fromDepartment);
+  return groups;
+}
+
+/** True when the listing's own evidence places it in a different sizing group than the one requested. */
+export function sizingGroupConflict(item: Comparable, sizeSystem: string, product: string) {
+  const wanted = wantedGroup(sizeSystem);
+  if (!wanted) return false;
+  const groups = listingSizingGroups(item, normalize(item.title), product);
+  return [...groups].some((g) => g !== wanted);
+}
+
+/** Several sizes offered in one listing ("Sizes 4/4.5/5", "size 7-10"), so its one price isn't for one pair. */
+export function multipleSizesListed(rawTitle: string) {
+  const t = rawTitle.toLowerCase();
+  if (/\bsizes\b|\b(?:choose|select|multiple|various|all) (?:your )?sizes?\b/.test(t)) return true;
+  if (/\b\d{1,2}(?:\.5)?\s*\/\s*\d{1,2}(?:\.5)?\s*\/\s*\d{1,2}(?:\.5)?\b/.test(t)) return true;
+  if (/\bsize\s*\d{1,2}(?:\.5)?\s*(?:-|–|to)\s*\d{1,2}(?:\.5)?\b/.test(t)) return true;
+  return false;
+}
+
+/**
+ * Size evidence for one listing. eBay's structured item specifics are used when present; otherwise only
+ * what the title states. An unknown size is never treated as a match.
+ */
+export function sizeEvidence(item: Comparable, d: MatchDetails, title: string, product: string): { ok: true; reason: string } | { ok: false; reason: string } {
+  const escaped = d.size.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const wanted = wantedGroup(d.sizeSystem);
+  const groups = listingSizingGroups(item, title, product);
+  const groupCheck = (): string | null => {
+    if (!wanted) return null;
+    if ([...groups].some((g) => g !== wanted)) return "sizing_group_mismatch";
+    if (!groups.has(wanted)) return "sizing_group_unverified";
+    return null;
+  };
+  const a = item.aspects;
+  if (a?.size) {
+    const same = Number.isFinite(Number(a.size)) && Number.isFinite(Number(d.size)) ? Number(a.size) === Number(d.size) : a.size.trim().toLowerCase() === d.size.trim().toLowerCase();
+    if (!same) return { ok: false, reason: "size_mismatch" };
+    // The title and the structured field must not disagree ("Men's Size 10" filed as 10.5 proves nothing).
+    // A multi-size listing's variation keeps the group's title ("Sz 7-11"), which describes every variation.
+    const groupTitle = a.source === "ebay-item-group";
+    const stated = [...title.matchAll(/\b(?:size|sz|us|mens|men)\s*(\d{1,2}(?:\.5)?)(?![\d.])/g), ...title.matchAll(/\b(\d{1,2}(?:\.5)?)\s*m\b/g)].map((m) => Number(m[1]));
+    if (!groupTitle && stated.some((n) => n !== Number(a.size))) return { ok: false, reason: "size_evidence_conflict" };
+    if (!groupTitle && multipleSizesListed(item.title)) return { ok: false, reason: "size_selection_unverified" };
+    const group = groupCheck();
+    if (group) return { ok: false, reason: group };
+    if (d.sizeSystem.startsWith("US") && a.sizeSystem !== "US") return { ok: false, reason: "sizing_system_unverified" };
+    if ((d.sizeSystem === "UK" || d.sizeSystem === "EU") && a.sizeSystem !== d.sizeSystem) return { ok: false, reason: "sizing_system_unverified" };
+    return { ok: true, reason: "Size and sizing group stated in eBay item specifics" };
+  }
+  if (/\b(sizes|choose size|select size|multiple sizes)\b/.test(title) || multipleSizesListed(item.title)) return { ok: false, reason: "size_selection_unverified" };
+  const notation = d.sizeSystem === "US Men" && menNotation(title, d.size.toLowerCase());
+  const sizeMatch = notation || new RegExp(`\\b(?:size|sz|us|uk|eu)\\s*${escaped}(?![\\d.])`).test(title);
+  if (!sizeMatch) return { ok: false, reason: /\b(?:size|sz|us|uk|eu)\s*\d/.test(title) || menNotation(title) ? "size_mismatch" : "size_unverified" };
+  const group = groupCheck();
+  if (group) return { ok: false, reason: group };
+  if (d.sizeSystem === "UK" && !new RegExp(`\\buk\\s*${escaped}(?![\\d.])`).test(title)) return { ok: false, reason: "size_or_sizing_group_unverified" };
+  if (d.sizeSystem === "EU" && !new RegExp(`\\beu\\s*${escaped}(?![\\d.])`).test(title)) return { ok: false, reason: "size_or_sizing_group_unverified" };
+  // "10M/11.5W" is US notation; otherwise a US size needs "US" in the title.
+  if (d.sizeSystem.startsWith("US") && !/\bus\b/.test(title) && !notation)
+    return { ok: false, reason: /\b(?:uk|eu)\b/.test(title) ? "sizing_system_mismatch" : "sizing_system_unverified" };
+  if (d.sizeSystem.startsWith("US") && /\b(uk|eu)\b/.test(title) && !new RegExp(`\\bus\\s*${escaped}(?![\\d.])`).test(title) && !notation)
+    return { ok: false, reason: "size_or_sizing_group_unverified" };
+  return { ok: true, reason: "Size and sizing group evidenced in title" };
+}

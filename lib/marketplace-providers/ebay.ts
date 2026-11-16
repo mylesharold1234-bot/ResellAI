@@ -2,11 +2,12 @@ import {retrievalDiagnostics,sufficientSearchEvidence} from "../retrieval-diagno
 import {completeComparable,scoreComparable} from "../comparable-quality";
 import type {
   Comparable,
+  ListingAspects,
   MarketplaceProvider,
   MarketplaceResult,
   ProductQuery,
 } from "../marketplaces";
-import { searchPlan, searchCacheKey, tierComparable } from "../ebay-search";
+import { searchPlan, searchCacheKey, sizedSearch, tierComparable } from "../ebay-search";
 export class EbayError extends Error {
   constructor(
     message: string,
@@ -42,6 +43,39 @@ export function listingImage(row: Record<string, unknown>): string | null {
     }
   }
   return null;
+}
+/** eBay's item-group id for a multi-variation listing, from its itemGroupHref. Digits only. */
+export function itemGroupIdOf(row: Record<string, unknown>): string | null {
+  if (typeof row.itemGroupHref !== "string") return null;
+  try {
+    const id = new URL(row.itemGroupHref).searchParams.get("item_group_id");
+    return id && /^\d{6,20}$/.test(id) ? id : null;
+  } catch {
+    return null;
+  }
+}
+/**
+ * Size, department and style code from eBay's own item specifics (localizedAspects). Only plain,
+ * single US shoe sizes are accepted ("10", "10 M", "US 10"); anything else is left unknown.
+ */
+export function ebayAspects(raw: unknown, source: ListingAspects["source"]): ListingAspects | null {
+  if (!Array.isArray(raw)) return null;
+  const get = (name: RegExp) => {
+    const hit = raw.find((a) => object(a) && typeof a.name === "string" && name.test(a.name.trim()) && typeof a.value === "string");
+    return hit && object(hit) ? String(hit.value).trim().slice(0, 80) : "";
+  };
+  const out: ListingAspects = { source };
+  const us = get(/^US Shoe Size$/i);
+  const size = /^(?:US\s*)?(?:M(?:en'?s)?\s*)?(\d{1,2}(?:\.5)?)\s*(?:M|US|Men'?s?)?$/i.exec(us);
+  if (size) {
+    out.size = String(Number(size[1]));
+    out.sizeSystem = "US";
+  }
+  const department = get(/^Department$/i);
+  if (department) out.department = department;
+  const style = get(/^(?:Style Code|Style|Manufacturer Part Number|MPN)$/i);
+  if (/^[A-Z]{2}\d{4}[- ]?\d{3}$/i.test(style)) out.styleCode = style.toUpperCase().replace(" ", "-");
+  return out.size || out.department || out.styleCode ? out : null;
 }
 export function normalizeEbaySearch(
   body: unknown,
@@ -141,6 +175,7 @@ export function normalizeEbaySearch(
           .filter(Boolean)
       : [];
     const image = listingImage(row);
+    const itemGroupId = itemGroupIdOf(row);
     result.push({
       id: row.itemId,
       title: row.title.trim(),
@@ -151,6 +186,7 @@ export function normalizeEbaySearch(
       conditionId: typeof conditionId === "string" ? conditionId : "",
       url: url.href,
       ...(image ? { image } : {}),
+      ...(itemGroupId ? { itemGroupId } : {}),
       observedAt,
       shipping,
       seller,
@@ -375,19 +411,90 @@ export function createEbayProvider({
           const exclusionCounts: Record<string,number> = {};
           const seen = new Set<string>();
           let examined=0, invalid=0, normalizedCount=0;
+          const headers={Authorization:'Bearer '+authorization,'X-EBAY-C-MARKETPLACE-ID':'EBAY_US','Accept-Language':'en-US'};
+          /**
+           * Structured eBay evidence for a confirmed shoe size, only when the searches didn't already
+           * support a price: each multi-size listing's own variation in that size (its own price and
+           * "US Shoe Size"), and eBay's item specifics for close matches whose titles don't state the size.
+           * Bounded call counts; nothing is assumed when eBay doesn't state a value.
+           */
+          async function enrich(){
+            const out={groupsChecked:0,variationsFound:0,detailsChecked:0,detailsWithSize:0,skipped:undefined as string|undefined};
+            const wanted=query.details.size.trim();
+            if(!sized||!wanted){out.skipped='No confirmed US men\'s or women\'s shoe size.';return out;}
+            const snapshot=():MarketplaceResult=>({provider:"ebay",environment,status:"available",query:text,comparables,retrievedAt:stamp,expiresAt:new Date(now()+300000).toISOString(),cached:false,examined,excluded:0,invalid,warnings:[]});
+            if(sufficientSearchEvidence(snapshot(),query)){out.skipped='The searches already support a price.';return out;}
+            const relaxed:ProductQuery={...query,details:{...query.details,size:'',sizeSystem:''}};
+            // Everything but the size checks out (product, colors, condition, box, sizing group not contradicted).
+            const otherwiseEligible=(c:Comparable)=>{const m=tierComparable({...c,matchReasons:[],quality:undefined},relaxed);return !!m.item&&m.item.matchTier!=='related'&&m.item.priceEligible===true;};
+            const budget=()=>{requests=requests.filter(t=>t>now()-3600000);return requests.length<90&&cooldownUntil<=now();};
+            const byQuality=(a:Comparable,b:Comparable)=>(b.quality?.score??0)-(a.quality?.score??0)||a.id.localeCompare(b.id);
+            const setRow=(id:string,title:string,stage:string,reason:string)=>{const row=rowDiagnostics.find(r=>r.id===id&&r.stage!=='deduplication');if(row){row.stage=stage;row.reason=reason;}else rowDiagnostics.push({id,title,stage,reason});};
+            const groups=comparables.filter(c=>c.itemGroupId&&otherwiseEligible({...sources.get(c.id)!,warnings:[],aspects:{source:'ebay-item-group'}})).sort(byQuality).slice(0,6);
+            for(const group of groups){
+              if(!budget()){searchWarnings.push('eBay item-specific checks stopped early to stay within the request budget.');break;}
+              requests.push(now());out.groupsChecked++;
+              let body:unknown;
+              try{body=await upstream(base+'/buy/browse/v1/item/get_items_by_item_group?'+new URLSearchParams({item_group_id:group.itemGroupId!}),{headers});}
+              catch(error){if(error instanceof EbayError&&error.retryAfterSeconds)break;continue;}
+              const items=object(body)&&Array.isArray(body.items)?body.items.slice(0,200):[];
+              for(const raw of items){
+                if(!object(raw))continue;
+                const aspects=ebayAspects(raw.localizedAspects,'ebay-item-group');
+                if(!aspects?.size||Number(aspects.size)!==Number(wanted))continue;
+                const {itemGroupHref:_h,itemGroupType:_t,...row}=raw;
+                const [variation]=normalizeEbaySearch({total:1,itemSummaries:[row]},environment,stamp).items;
+                if(!variation||seen.has(variation.id))continue;
+                seen.add(variation.id);
+                const source:Comparable={...variation,warnings:variation.warnings.filter(w=>!w.startsWith('Variation selection unverified')),aspects};
+                sources.set(source.id,source);
+                const match=tierComparable(source,query);
+                rowDiagnostics.push({id:source.id,title:source.title,stage:match.item?match.item.matchTier+(match.item.priceEligible?' (candidate, eBay size variation)':' (pricing excluded, eBay size variation)'):'matching',reason:match.reason});
+                if(match.item){comparables.push({...match.item,quality:scoreComparable(match.item)});out.variationsFound++;}
+              }
+            }
+            const unstated=new Set(['size_unverified','sizing_group_unverified','sizing_system_unverified','size_or_sizing_group_unverified']);
+            const details=comparables.filter(c=>!c.itemGroupId&&!c.aspects&&c.matchTier!=='related'&&!c.priceEligible&&
+              unstated.has(tierComparable({...sources.get(c.id)!},query).reason)&&otherwiseEligible(sources.get(c.id)!)).sort(byQuality).slice(0,10);
+            for(const c of details){
+              if(!budget()){searchWarnings.push('eBay item-specific checks stopped early to stay within the request budget.');break;}
+              requests.push(now());out.detailsChecked++;
+              let body:unknown;
+              try{body=await upstream(base+'/buy/browse/v1/item/'+encodeURIComponent(c.id),{headers});}
+              catch(error){if(error instanceof EbayError&&error.retryAfterSeconds)break;continue;}
+              const aspects=object(body)?ebayAspects(body.localizedAspects,'ebay-item-details'):null;
+              if(!aspects)continue;
+              if(aspects.size)out.detailsWithSize++;
+              const source={...sources.get(c.id)!,aspects};
+              sources.set(c.id,source);
+              const match=tierComparable(source,query);
+              const index=comparables.findIndex(x=>x.id===c.id);
+              if(match.item&&index>=0)comparables[index]={...match.item,quality:scoreComparable(match.item)};
+              setRow(c.id,c.title,match.item?match.item.matchTier+(match.item.priceEligible?' (candidate, eBay item specifics)':' (pricing excluded, eBay item specifics)'):'matching',match.reason);
+            }
+            return out;
+          }
           const filter = 'buyingOptions:{FIXED_PRICE},deliveryCountry:US';
           const searchWarnings:string[]=[];
-          for (const step of plan) {
+          // Source facts for each listing, so structured eBay evidence can re-check it from scratch.
+          const sources = new Map<string, Comparable>();
+          const sized = sizedSearch(query);
+          type Step = { stage: string; query: string; categoryId?: string; aspectFilter?: string; conditionIds?: string };
+          const steps: Step[] = [...(sized ? [sized] : []), ...plan];
+          for (const step of steps) {
             if(attempts.length&&sufficientSearchEvidence({provider:"ebay",environment,status:"available",query:text,comparables,retrievedAt:stamp,expiresAt:new Date(now()+300000).toISOString(),cached:false,examined,excluded:0,invalid,warnings:[]},query))break;
             requests = requests.filter(t=>t>now()-3600000);
             if(requests.length>=100 || cooldownUntil>now()) {searchWarnings.push('Search budget or rate-limit cooldown stopped further stages.');break;}
             requests.push(now());
             const attemptStart=now();
-            const attempt={stage:step.stage,query:step.query,filter,limit:100,returned:0,unique:0,duplicates:0,candidates:0,latencyMs:0,error:undefined as string|undefined};
+            const stepFilter=filter+(step.conditionIds?',conditionIds:{'+step.conditionIds+'}':'');
+            const attempt={stage:step.stage,query:step.query,filter:stepFilter+(step.aspectFilter?' · category '+step.categoryId+' · '+step.aspectFilter:''),limit:100,returned:0,unique:0,duplicates:0,candidates:0,latencyMs:0,error:undefined as string|undefined};
             attempts.push(attempt);
             let normalized: ReturnType<typeof normalizeEbaySearch>;
             try {
-              const params=new URLSearchParams({q:step.query,limit:'100',filter});
+              const params=new URLSearchParams({q:step.query,limit:'100',filter:stepFilter});
+              if(step.categoryId)params.set('category_ids',step.categoryId);
+              if(step.aspectFilter)params.set('aspect_filter',step.aspectFilter);
               const raw=await upstream(base+'/buy/browse/v1/item_summary/search?'+params,{headers:{Authorization:'Bearer '+authorization,'X-EBAY-C-MARKETPLACE-ID':'EBAY_US','Accept-Language':'en-US'}});
               normalized=normalizeEbaySearch(raw,environment,stamp);
             } catch(error) {
@@ -400,13 +507,19 @@ export function createEbayProvider({
             examined+=normalized.examined;invalid+=normalized.invalid;normalizedCount+=normalized.items.length;
             rowDiagnostics.push(...normalized.diagnostics);
             for(const [reason,count] of Object.entries(normalized.exclusions))exclusionCounts[reason]=(exclusionCounts[reason]||0)+count;
-            for(const item of normalized.items){
+            for(const listed of normalized.items){
+              // eBay matched this single-size listing on its own "US Shoe Size" item specific in the
+              // men's/women's category. Multi-size listings matched on one of their sizes stay unverified.
+              const item: Comparable = sized && step.stage===sized.stage && !listed.itemGroupId
+                ? {...listed, aspects:{source:'ebay-size-filter', size:sized.size, sizeSystem:'US', department:sized.department}}
+                : listed;
               if(seen.has(item.id)){
                 const prior=comparables.find(x=>x.id===item.id);
                 if(prior&&(prior.price!==item.price||prior.conditionId!==item.conditionId||item.warnings.includes("Conflicting duplicate listing")))
                   prior.warnings.push("Conflicting duplicate listing");
                 attempt.duplicates++;invalid++;normalizedCount--;exclusionCounts.duplicate_across_searches=(exclusionCounts.duplicate_across_searches||0)+1;rowDiagnostics.push({id:item.id,title:item.title,stage:'deduplication',reason:'duplicate_across_searches'});continue;}
               seen.add(item.id);attempt.unique++;
+              sources.set(item.id,item);
               const match=completeComparable(item,query)?tierComparable(item,query):{item:null,reason:"incompatible_or_incomplete_footwear"};
               rowDiagnostics.push({id:item.id,title:item.title,stage:match.item ? match.item.matchTier+(match.item.priceEligible?' (candidate)':' (pricing excluded)') : 'matching',reason:match.reason});
               if(match.item?.priceEligible)attempt.candidates++;
@@ -414,6 +527,7 @@ export function createEbayProvider({
             }
             attempt.latencyMs=now()-attemptStart;
           }
+          const enrichment = await enrich();
           const value: MarketplaceResult = {
             provider: "ebay",
             status: comparables.length ? "available" : "no_matches",
@@ -424,20 +538,20 @@ export function createEbayProvider({
             expiresAt: new Date(now() + 300000).toISOString(),
             cached: false,
             diagnostics: { normalized: normalizedCount, accepted: comparables.length, exclusions: exclusionCounts, rows: rowDiagnostics },
-            searchDiagnostics: { cacheKey:key, attempts, exact:comparables.filter(x=>x.matchTier==="exact").length,close:comparables.filter(x=>x.matchTier==="close").length,related:comparables.filter(x=>x.matchTier==="related").length },
+            searchDiagnostics: { cacheKey:key, attempts, enrichment, exact:comparables.filter(x=>x.matchTier==="exact").length,close:comparables.filter(x=>x.matchTier==="close").length,related:comparables.filter(x=>x.matchTier==="related").length },
             examined,
             excluded: normalizedCount - comparables.length,
             invalid,
             warnings: [
               ...searchWarnings,
-              "Limited sample: up to four searches of the first 100 best-match fixed-price listings, USD, deliverable to the US. Item prices exclude shipping and tax. Title-based matching may miss valid listings or accept imperfect matches.",
+              "Limited sample: up to five searches of the first 100 best-match fixed-price listings, USD, deliverable to the US, plus a few eBay item-specific checks. Item prices exclude shipping and tax. Title-based matching may miss valid listings or accept imperfect matches.",
               ...(environment === "sandbox"
                 ? ["Sandbox listings are test data, not market evidence."]
                 : []),
             ],
           };
           value.searchCompleteness=attempts.some(a=>a.error)||searchWarnings.some(w=>/stopped further stages/i.test(w))?"partial":"complete";
-          value.retrievalDiagnostics=retrievalDiagnostics(value,query,seen.size,(exclusionCounts.duplicate_across_searches||0)+(exclusionCounts.duplicate_item||0),attempts.length,now()-started);
+          value.retrievalDiagnostics=retrievalDiagnostics(value,query,seen.size,(exclusionCounts.duplicate_across_searches||0)+(exclusionCounts.duplicate_item||0),attempts.length+enrichment.groupsChecked+enrichment.detailsChecked,now()-started);
           console.info("[ebay-search]", JSON.stringify({cacheKey:key, attempts:value.searchDiagnostics?.attempts, returned:examined, retained:comparables.length, exclusions:exclusionCounts}));
           if (cache.size >= 100) cache.delete(cache.keys().next().value!);
           cache.set(key, { expires: now() + 300000, value });

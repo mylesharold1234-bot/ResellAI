@@ -1,11 +1,12 @@
-import {nonWearableReason,footwearSignature,supportedFootwear,footwearSubtypeEvidence} from "./footwear-compatibility";
+import {nonWearableReason,footwearSignature,supportedFootwear,footwearSubtypeEvidence,listedFootwear,footwearVariantConflict} from "./footwear-compatibility";
+import {styleGroup} from "./style-codes";
 import {primaryProduct} from './primary-product';
 import {conditionGroup} from './product-matching';
 import {assessIdentification, genericObjectWords, known, normalizeProduct, recognizableName, productProfile, pricingIdentity, jordanEdition} from './product-profile';
 import {createHash} from 'node:crypto';
 import type {Comparable, ProductQuery} from './marketplaces';
 import {emptyMatchDetails} from './marketplaces';
-import {matchComparable, normalize, tokens} from './product-matching';
+import {matchComparable, multipleSizesListed, normalize, tokens} from './product-matching';
 export type MatchTier = 'exact' | 'close' | 'related';
 export function searchPlan(query: ProductQuery) {
  const i=normalizeProduct(query.identification);
@@ -45,7 +46,23 @@ export function searchPlan(query: ProductQuery) {
  if(query.details.productIdentifierVerified && query.details.productIdentifier) candidates.push({stage:'D',query:constrained(full+' '+query.details.productIdentifier,query.details.productIdentifier)});
  const seen=new Set<string>();return candidates.map(x=>({...x,query:x.query})).filter(x=>x.query&&!seen.has(x.query)&&!!seen.add(x.query)).slice(0,4);
 }
-export function searchCacheKey(query:ProductQuery){return createHash('sha256').update(JSON.stringify({version:20,identification:query.identification,details:query.details})).digest('hex').slice(0,24);}
+/**
+ * A size-filtered eBay search: eBay's own "US Shoe Size" item specific within the men's (15709) or
+ * women's (95672) Athletic Shoes category. Only for a confirmed, plain US men's or women's shoe size.
+ */
+export function sizedSearch(query:ProductQuery){
+ const d=query.details;
+ const i=normalizeProduct(query.identification);
+ const size=d.size.trim();
+ if(productProfile(i).kind!=='footwear'||!/^\d{1,2}(?:\.5)?$/.test(size)||(d.sizeSystem!=='US Men'&&d.sizeSystem!=='US Women'))return null;
+ const categoryId=d.sizeSystem==='US Men'?'15709':'95672';
+ const visual=tokens(i.colorway||'').filter(t=>['black','white','red','blue','green','gray','grey','silver','gold','pink','purple','brown'].includes(t)).join(' ');
+ const text=[...new Set(normalize([known(i.brand),known(i.model)||recognizableName(i),visual].join(' ')).split(' ').filter(Boolean))].join(' ').slice(0,100);
+ if(!text)return null;
+ return {stage:'S',query:text,categoryId,aspectFilter:`categoryId:${categoryId},US Shoe Size:{${String(Number(size))}}`,
+  department:d.sizeSystem==='US Men'?'Men':'Women',size:String(Number(size)),conditionIds:d.condition==='new'?'1000|1500|1750':''};
+}
+export function searchCacheKey(query:ProductQuery){return createHash('sha256').update(JSON.stringify({version:21,identification:query.identification,details:query.details})).digest('hex').slice(0,24);}
 export function tierComparable(item:Comparable,query:ProductQuery):{item:Comparable|null;reason:string}{
  const nonWearable=nonWearableReason(item,query);
  if(nonWearable)return {item:null,reason:nonWearable};
@@ -88,7 +105,7 @@ export function tierComparable(item:Comparable,query:ProductQuery):{item:Compara
  // A different silhouette/generation must never be promoted by relaxing detail checks.
  const shoe=profile.kind==='footwear'||/\bjordan 1 (?:mid|low|high)\b/i.test(i.model);
  if(shoe){
-  const requested=supportedFootwear(query),listed=footwearSignature(title);
+  const requested=supportedFootwear(query),listed=listedFootwear({...item,title},query);
   if(requested.silhouette!=="unspecified"&&listed.silhouette!=="unspecified"&&listed.silhouette!==requested.silhouette)
     return {item:null,reason:"incompatible_footwear_silhouette"};
   if(requested.edition!=="unspecified"&&listed.edition!==requested.edition)
@@ -130,9 +147,14 @@ export function tierComparable(item:Comparable,query:ProductQuery):{item:Compara
  if(/lego|building/i.test(`${i.brand} ${i.category}`)&&!details.productIdentifierVerified&&!/\b\d{4,7}\b/.test(i.model))missing.push('LEGO set number not verified');
  if(/iphone/i.test(i.model)&&!query.details.variant&&!/\b(?:64|128|256|512|1024)\s*(?:gb|tb)\b/i.test(i.model))missing.push("Storage and edition not confirmed");
  if(/playstation/i.test(i.model)&&!query.details.variant&&!/disc|digital|slim|pro/i.test(i.model))missing.push("Console edition not confirmed");
- const uncertainVariation=item.warnings.some(w=>w.startsWith('Variation selection unverified'))||(shoe&&/\b(?:multiple sizes|choose (?:your )?size|select (?:your )?size|various sizes|all sizes)\b/i.test(title));
+ // A multi-size listing has one advertised price for several sizes, unless eBay states this variation's own size.
+ const verifiedVariation=item.aspects?.source==='ebay-item-group';
+ const uncertainVariation=!verifiedVariation&&(item.warnings.some(w=>w.startsWith('Variation selection unverified'))||(shoe&&(/\b(?:multiple sizes|choose (?:your )?size|select (?:your )?size|various sizes|all sizes)\b/i.test(title)||multipleSizesListed(item.title))));
  const tier:MatchTier=strict.matches&&!extraConflicts.length&&!missing.length&&!uncertainVariation?'exact':'close';
- if(shoe&&/\b(?:gs|ps|td|youth|kids|toddler|infant|preschool|grade school)\b/i.test(title)&&! /\b(?:gs|ps|td|youth|kids|toddler|infant|preschool|grade school)\b/i.test(`${query.details.sizeSystem} ${query.details.variant} ${query.identification.productName}`))return {item:{...item,matchTier:'related',priceEligible:false,matchReasons:family.reasons,warnings:[...item.warnings,'Youth sizing group not established for the confirmed product; context only']},reason:'youth_sizing_group_unconfirmed'};
+ const youthCode=shoe&&styleGroup([item.title,item.aspects?.styleCode||''].join(' '),[i.model,query.identification.productName].join(' '))==='youth';
+ if(shoe&&(youthCode||/\b(?:gs|ps|td|youth|kids|toddler|infant|preschool|grade school)\b/i.test(title))&&! /\b(?:gs|ps|td|youth|kids|toddler|infant|preschool|grade school)\b/i.test(`${query.details.sizeSystem} ${query.details.variant} ${query.identification.productName}`))return {item:{...item,matchTier:'related',priceEligible:false,matchReasons:family.reasons,warnings:[...item.warnings,'Youth sizing group not established for the confirmed product; context only']},reason:'youth_sizing_group_unconfirmed'};
+ const variantConflict=shoe?footwearVariantConflict(item.title,query):null;
+ if(variantConflict)return {item:{...item,matchTier:'related',priceEligible:false,matchReasons:family.reasons,warnings:[...item.warnings,variantConflict.replaceAll('_',' ')]},reason:variantConflict};
  const eligible=similar.matches&&!extraConflicts.length&&!uncertainVariation&&!!conditionGroup(item.conditionId);
  const reason=uncertainVariation?'variation_price_unverified':!similar.matches?(similar.exclusionReason||'attributes_not_evidenced'):extraConflicts.length?(subtypeEvidence&&subtypeEvidence.state!=='confirmed'?subtypeEvidence.reason:'extra_attributes_not_evidenced'):!conditionGroup(item.conditionId)?'unknown_condition':tier==='exact'?'exact_comparable':(missing.length?missing.join('; '):'partial_color_evidence');
  const warnings=[...item.warnings,...(primary.included.length?['Included accessories: '+primary.included.join(', ')]:[]),...missing,...extraConflicts.map(([key])=>`${key} not evidenced in listing title`),...similar.warnings,...(!strict.matches?[`Attribute uncertainty: ${similar.exclusionReason||strict.exclusionReason}; not an exact comparable`]:[])];

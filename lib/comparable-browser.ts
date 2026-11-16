@@ -70,6 +70,7 @@ const REASONS: Record<string, string> = {
   condition_unverified: "Condition not stated",
   unknown_condition: "Condition not stated",
   size_mismatch: "Different size",
+  size_evidence_conflict: "Title and listing details disagree on size",
   size_unverified: "Size not confirmed from the title",
   size_selection_unverified: "Several sizes in one listing",
   size_or_sizing_group_unverified: "Size not confirmed from the title",
@@ -145,7 +146,8 @@ export function browserRows(sources: BrowserEvidence[]): BrowserRow[] {
         url: c.url,
         image: c.image ?? null,
         condition: c.condition,
-        size: listingSize(c.title),
+        // The marketplace's own size (eBay item specifics, Mercari's size field) beats words in the title.
+        size: c.aspects?.size ? { kind: "single", label: `Size ${c.aspects.size}`, value: c.aspects.size } : listingSize(c.title),
         use,
         why,
         score: c.quality?.score ?? 0,

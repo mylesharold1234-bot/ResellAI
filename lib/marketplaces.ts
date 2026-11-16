@@ -46,6 +46,24 @@ export type Comparable = {
   categories: string[];
   matchReasons: string[];
   warnings: string[];
+  /**
+   * Structured facts the marketplace itself states about this exact listing or variation (eBay item
+   * specifics, Mercari's size field and Men/Women/Kids category), as opposed to words in the title.
+   * Only set from the marketplace's own data, never inferred.
+   */
+  aspects?: ListingAspects;
+  /** eBay item-group id for a multi-variation listing, so its per-size variations can be checked. */
+  itemGroupId?: string;
+};
+export type ListingAspects = {
+  /** Shoe size exactly as eBay states it, e.g. "10". */
+  size?: string;
+  /** "US" when eBay states a US shoe size. */
+  sizeSystem?: string;
+  /** eBay Department or the men's/women's category the listing is filed in. */
+  department?: string;
+  styleCode?: string;
+  source: "ebay-size-filter" | "ebay-item-details" | "ebay-item-group" | "mercari-listing";
 };
 export type MarketplaceResult = {
   searchCompleteness?: "complete" | "partial";
@@ -65,7 +83,9 @@ export type MarketplaceResult = {
   warnings: string[];
   diagnostics?: { normalized: number; accepted: number; exclusions: Record<string, number>; rows: { id: string; title: string; stage: string; reason: string }[] };
   retrievalDiagnostics?: {uniqueListings:number;duplicateRows:number;duplicateRate:number|null;pricingCandidates:number;cohortCount:number;bottleneck:"none"|"retrieval-error"|"no-results"|"matching"|"pricing-cohort";latencyMs:number;requests:number};
-  searchDiagnostics?: {cacheKey: string; attempts: {stage: string; query: string; filter: string; limit: number; returned: number; unique?:number; duplicates?:number; candidates?:number; latencyMs?:number; error?: string}[]; exact: number; close: number; related: number};
+  searchDiagnostics?: {cacheKey: string; attempts: {stage: string; query: string; filter: string; limit: number; returned: number; unique?:number; duplicates?:number; candidates?:number; latencyMs?:number; error?: string}[]; exact: number; close: number; related: number;
+    /** Structured eBay checks: per-size variations of multi-size listings, and item specifics for close matches. */
+    enrichment?: {groupsChecked:number; variationsFound:number; detailsChecked:number; detailsWithSize:number; skipped?:string}};
   retryAfterSeconds?: number;
   creditsUsed?: number | null;
 };

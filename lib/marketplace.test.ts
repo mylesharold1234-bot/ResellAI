@@ -364,6 +364,12 @@ test("official OAuth/search requests, cache, deduplication and expiry work", asy
       return Response.json({ access_token: "test-token", expires_in: 7200 });
     }
     search++;
+    // A confirmed US men's size adds one size-filtered search on eBay's own "US Shoe Size" item specific.
+    if (search % 4 === 1) {
+      const params = new URL(String(url)).searchParams;
+      assert.equal(params.get("category_ids"), "15709");
+      assert.equal(params.get("aspect_filter"), "categoryId:15709,US Shoe Size:{9.5}");
+    }
     assert.match(String(url), /buyingOptions/);
     assert.match(String(url), /limit=100/);
     assert.equal(
@@ -386,11 +392,11 @@ test("official OAuth/search requests, cache, deduplication and expiry work", asy
   ]);
   assert.equal(a.status, "available");
   assert.equal(b.comparables.length, 1);
-  assert.equal(search, 3);
+  assert.equal(search, 4);
   assert.equal((await provider.search(query)).cached, true);
   current += 300001;
   assert.equal((await provider.search(query)).cached, false);
-  assert.equal(search, 6);
+  assert.equal(search, 8);
   assert.equal(auth, 1);
   current += 7200000;
   await provider.search(query);

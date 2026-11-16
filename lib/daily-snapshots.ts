@@ -22,12 +22,15 @@ function nextMidnight(time:number,day:string){
  return new Date(high).toISOString();
 }
 const algorithm="2026-11-11.reference-1";
+// eBay matching changed on 2026-11-15 (structured box/size evidence, style codes, size-filtered search).
+// Mercari keeps its key so today's paid snapshots are reused; tomorrow's snapshot applies the new rules.
+const ebayAlgorithm="2026-11-15.evidence-2";
 export function snapshotIdentity(provider:string,query:ProductQuery,day:string){
   const {identity,credible}=pricingIdentity(query.identification,query.details);
   const d=query.details;
   const clean=(v?:string|null)=>(v||"").normalize("NFKC").toLowerCase().trim().replace(/\s+/g," ");
   const colors=clean(identity.colorway).split(/[\s,/-]+/).filter(w=>w&&w!=="and").sort().join(" ");
-  const identityFields=[provider==="mercari"&&process.env.MERCARI_MAX_SEARCH_QUERIES==="2"?2:1,supportedFootwear(query),provider,day,provider==="mercari"?algorithm+"/mercari-2":algorithm,clean(identity.brand).replace(/^nike(?: jordan)?$|^air jordan$/, /jordan 1/i.test(identity.model||"")?"jordan":"nike"),
+  const identityFields=[provider==="mercari"&&process.env.MERCARI_MAX_SEARCH_QUERIES==="2"?2:1,supportedFootwear(query),provider,day,provider==="mercari"?algorithm+"/mercari-2":ebayAlgorithm,clean(identity.brand).replace(/^nike(?: jordan)?$|^air jordan$/, /jordan 1/i.test(identity.model||"")?"jordan":"nike"),
     clean(identity.model)||clean(recognizableName(identity)),productProfile(identity).kind,colors,clean(d.size),clean(d.sizeSystem),
     d.condition||visibleConditionGroup(identity.visibleCondition),clean(d.variant)||jordanEdition(query.identification),d.productIdentifierVerified?clean(d.productIdentifier):"",
     clean(d.packaging),clean(d.subtype),clean(d.material),clean(d.dimensions),clean(d.includedAccessories),

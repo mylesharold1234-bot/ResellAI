@@ -1,6 +1,7 @@
 import {tierComparable} from './ebay-search';
 import {matchMercari} from './mercari-matching';
 import {scoreComparable} from './comparable-quality';
+import {sizingGroupConflict} from './product-matching';
 import {pricingEngine,defaultPricingOptions} from './pricing-engine';
 import type {MarketplaceResult,ProductQuery} from './marketplaces';
 
@@ -13,12 +14,16 @@ export function broaderMarketReference(result:MarketplaceResult,q:ProductQuery,n
   // Rematch from source facts; preserve upstream price-integrity warnings.
   const source={...row,quality:undefined,matchReasons:[],warnings:row.warnings.filter(w=>/^Variation selection unverified|^Conflicting duplicate listing|^Seller identifier unavailable/.test(w))};
   const match=result.provider==='mercari'?matchMercari(source,broader):tierComparable(source,broader);
-  return match.item?[{...match.item,quality:scoreComparable(match.item)}]:[];
+  if(!match.item)return [];
+  // Sizes are relaxed, sizing groups are not: a listing whose own evidence (title words, men's "10M"
+  // notation, a known style code or eBay's Department) says women's or youth never joins a men's reference.
+  if(sizingGroupConflict(source,q.details.sizeSystem,[q.identification.model,q.identification.productName].join(' ')))return [];
+  return [{...match.item,quality:scoreComparable(match.item)}];
  });
  // Existing thresholds, condition/edition cohorts, outlier and seller rules apply unchanged.
  const evidence=pricingEngine({...result,comparables:rows},broader,defaultPricingOptions,now);
  if(evidence.suggestedListingPrice===null||!evidence.statistics||!evidence.indicativeAskingRange)return null;
  return {kind:'broader-market-asking-reference',median:evidence.statistics.median,range:evidence.indicativeAskingRange,count:evidence.eligibleCount,listingIds:evidence.eligibleIds,
-  scope:'Same model, supported colors and compatible condition/edition; across unverified sizes and sizing groups. Item-only active asks, excluding shipping, tax and fees.',updatedAt:result.retrievedAt,
+  scope:'Same model, supported colors and compatible condition/edition; across sizes, excluding listings shown to be another sizing group. Item-only active asks, excluding shipping, tax and fees.',updatedAt:result.retrievedAt,
   excludedAttributes:['Size '+q.details.size+' / '+q.details.sizeSystem+' is not verified for this broader cohort.']};
 }

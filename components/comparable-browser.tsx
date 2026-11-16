@@ -92,7 +92,7 @@ export function ComparableBrowser({ sources, size }: { sources: BrowserEvidence[
         </button>
       )}
       <p className="fine">
-        Current asking prices from active listings, not sold prices. Sizes come from listing titles. Listings can change or end at any time.
+        Current asking prices from active listings, not sold prices. Sizes come from the marketplace&apos;s listing details when stated, otherwise from titles. Listings can change or end at any time.
       </p>
     </div>
   );
