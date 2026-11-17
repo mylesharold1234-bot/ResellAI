@@ -9,6 +9,7 @@ import type {
 } from "../marketplaces";
 import { searchPlan, searchCacheKey, sizedSearches, tierComparable } from "../ebay-search";
 import { styleCodesIn } from "../style-codes";
+import { reliableDate } from "../listing-age";
 export class EbayError extends Error {
   constructor(
     message: string,
@@ -177,6 +178,9 @@ export function normalizeEbaySearch(
       : [];
     const image = listingImage(row);
     const itemGroupId = itemGroupIdOf(row);
+    // eBay's original listing date survives relists; the current-listing date alone is only a lower bound.
+    const origin = reliableDate(row.itemOriginDate, observedAt);
+    const current = origin ? null : reliableDate(row.itemCreationDate, observedAt);
     result.push({
       id: row.itemId,
       title: row.title.trim(),
@@ -188,6 +192,7 @@ export function normalizeEbaySearch(
       url: url.href,
       ...(image ? { image } : {}),
       ...(itemGroupId ? { itemGroupId } : {}),
+      ...(origin ? { listedAt: origin, listedAtSource: "ebay-original-listing" as const } : current ? { listedAt: current, listedAtSource: "ebay-current-listing" as const } : {}),
       observedAt,
       shipping,
       seller,
@@ -489,7 +494,9 @@ export function createEbayProvider({
                 const existing=comparables.findIndex(x=>x.id===variation.id);
                 if(seen.has(variation.id)&&(existing<0||!comparables[existing].itemGroupId))continue;
                 seen.add(variation.id);
-                const source:Comparable={...variation,warnings:variation.warnings.filter(w=>!w.startsWith('Variation selection unverified')),aspects};
+                const prior=existing>=0?sources.get(variation.id)??comparables[existing]:null;
+                const dated=prior?.listedAtSource==='ebay-original-listing'?{listedAt:prior.listedAt,listedAtSource:prior.listedAtSource}:{};
+                const source:Comparable={...variation,...dated,warnings:variation.warnings.filter(w=>!w.startsWith('Variation selection unverified')),aspects};
                 sources.set(source.id,source);
                 const match=tierComparable(source,query);
                 const stage=match.item?match.item.matchTier+(match.item.priceEligible?' (candidate, eBay size variation)':' (pricing excluded, eBay size variation)'):'matching';

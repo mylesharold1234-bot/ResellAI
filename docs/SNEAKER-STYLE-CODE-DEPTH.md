@@ -33,3 +33,18 @@ The minimum-listing and 2× dispersion safeguards are unchanged.
 | Nov 15 live first page (100) | $70 shown as "Price found" | $70 labeled **Estimate** |
 
 Live calls during this work: 5 controlled eBay Browse calls in the investigation; none after. No Mercari credits were used.
+
+## Market reference bands (stage 1 of market-aware pricing)
+- **Listing dates.** Each comparable keeps its original listing date. For eBay that's `itemOriginDate`, which survives relists. The current-listing date (`itemCreationDate`) is only a lower bound, so it can mark a listing as older but never as recent. Mercari's date is `created_at`. Missing, future-dated or pre-1995 dates count as unknown, and unknown is never recent.
+- **Bands.** From the same verified group the engine already uses (same size, condition, box, edition and outlier filter), listings are split into recent (first listed within 365 days), older and undated. A band shows the lower quarter, median and upper quarter, plus listing and seller counts. It needs at least 8 listings from 5 sellers; below that the app says so instead of showing quartiles.
+- **Labeling.** Bands are labeled "Reference only · Asking prices, not sale prices". Older listings are shown separately as context, and undated listings are counted but left out of both. The official recommendation and its thresholds are unchanged, and bands never set a price.
+- **Dunk Low Panda DD1391-100, US Men's 10, new with box (saved 2026-11-17 data, 400 of 522 listings):**
+  - No official price (the spread is too wide).
+  - Recent listings: lower quarter $70, median $80, upper quarter $90, from 38 listings and 37 sellers, with 4 extreme recent asks left out.
+  - Older listings: middle half $89–$135, median $117, from 48 listings and 48 sellers.
+
+## Shipping (investigated, not implemented)
+- **Search results don't reliably include shipping.** Of 400 saved results, 225 had no shipping information and 36 said "calculated" without an amount. Only 139 (35%) gave a usable cost: 79 free and 58 flat fee, plus 2 calculated with a cost.
+- **Per-listing lookups do include it.** The listing-detail and multi-size lookups return the full shipping cost and delivery estimates.
+- **Calculated shipping depends on the buyer's location.** eBay documents a request header (`X-EBAY-C-ENDUSERCTX`) for estimating it.
+- **Next step.** Test that header with a reference ZIP code (1–2 free live calls) before pricing on item plus shipping. Until then, prices stay item-only, as the report already says.

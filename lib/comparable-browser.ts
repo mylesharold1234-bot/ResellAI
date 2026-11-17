@@ -1,4 +1,5 @@
 import type { Comparable, MarketplaceResult } from "./marketplaces";
+import { listedAgoLabel, listingAge } from "./listing-age";
 
 /**
  * Display helpers for the comparable-listing browser. Pure and client-safe: nothing here changes which
@@ -32,6 +33,8 @@ export type BrowserRow = {
   use: ListingUse;
   /** Why a listing wasn't used for the price, in a seller's words. Empty when it was used. */
   why: string;
+  /** "Listed 3 years ago", from the original listing date; "Listing date unknown" otherwise. */
+  listed: string;
   score: number;
 };
 
@@ -150,6 +153,7 @@ export function browserRows(sources: BrowserEvidence[]): BrowserRow[] {
         size: c.aspects?.size ? { kind: "single", label: `Size ${c.aspects.size}`, value: c.aspects.size } : listingSize(c.title),
         use,
         why,
+        listed: listedAgoLabel(listingAge(c)),
         score: c.quality?.score ?? 0,
       });
     }

@@ -2,6 +2,7 @@ import {retrievalDiagnostics,sufficientSearchEvidence} from "../retrieval-diagno
 import {scoreComparable} from "../comparable-quality";
 import {matchMercari} from "../mercari-matching";
 import {statedPackaging} from "../product-matching";
+import {reliableDate} from "../listing-age";
 import {searchPlan} from "../ebay-search";
 import type {Comparable,ListingAspects,MarketplaceProvider,MarketplaceResult,ProductQuery} from "../marketplaces";
 
@@ -65,7 +66,8 @@ export function normalizeMercari(body:unknown,stamp:string) {
       categories:Array.isArray(x.categories)?x.categories.filter(object).flatMap(c=>typeof c.name==="string"?[c.name.slice(0,80)]:[]).slice(0,10):[],
       matchReasons:[],warnings:[],...(()=>{const aspects=mercariAspects(x);return aspects?{aspects}:{};})(),
       ...(()=>{const box=typeof x.description==="string"?statedPackaging(x.description.slice(0,2000)):null;return box?{statedPackaging:box}:{};})(),
-      ...(()=>{const image=mercariImage(x);return image?{image}:{};})()});
+      ...(()=>{const image=mercariImage(x);return image?{image}:{};})(),
+      ...(()=>{const listedAt=reliableDate(x.created_at,stamp);return listedAt?{listedAt,listedAtSource:"mercari-created" as const}:{};})()});
   }
   const credits=typeof body.credits_used==="number"&&Number.isSafeInteger(body.credits_used)&&body.credits_used>=0?body.credits_used:null;
   return {items,examined:body.items.length,duplicateRows,credits,providerCached:body.cached===true};

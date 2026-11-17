@@ -54,6 +54,13 @@ export type Comparable = {
   aspects?: ListingAspects;
   /** eBay item-group id for a multi-variation listing, so its per-size variations can be checked. */
   itemGroupId?: string;
+  /** When the listing was first posted, as the marketplace states it (ISO timestamp). */
+  listedAt?: string;
+  /**
+   * Which date that is: eBay's original listing date, eBay's date for the current (possibly relisted) copy,
+   * which is only a lower bound on age, or Mercari's creation date.
+   */
+  listedAtSource?: "ebay-original-listing" | "ebay-current-listing" | "mercari-created";
   /** Box status the seller states plainly in the listing description (Mercari). Never inferred. */
   statedPackaging?: "original" | "none";
 };

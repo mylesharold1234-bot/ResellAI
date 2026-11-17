@@ -95,6 +95,7 @@ function Tier({ n, title, detail, tier, marketplace, exact = false }: { n: numbe
                     </span>
                     <span>{l.condition}</span>
                     <span className={l.box === "not mentioned" ? "is-unknown" : undefined}>{BOX[l.box]}</span>
+                    <span className={l.listed === "Listing date unknown" ? "is-unknown" : undefined}>{l.listed}</span>
                   </p>
                   {l.usedForPrice && <p className="comp-use"><span className="pill success">Used for the price</span></p>}
                 </div>

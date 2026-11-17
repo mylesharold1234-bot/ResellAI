@@ -71,6 +71,7 @@ export function ComparableBrowser({ sources, size }: { sources: BrowserEvidence[
                 <span>{r.marketplace}</span>
                 <span className={r.size.kind === "single" ? undefined : "is-unknown"}>{r.size.label}</span>
                 <span>{r.condition}</span>
+                <span className={r.listed === "Listing date unknown" ? "is-unknown" : undefined}>{r.listed}</span>
               </p>
               <p className="comp-use">
                 {r.use === "price" ? (

@@ -2,6 +2,7 @@ import { tierComparable } from "./ebay-search";
 import { matchMercari } from "./mercari-matching";
 import { conditionGroup, sizingGroupConflict } from "./product-matching";
 import type { Comparable, MarketplaceResult, ProductQuery } from "./marketplaces";
+import { listedAgoLabel, listingAge } from "./listing-age";
 
 /**
  * Sorts one marketplace's listings of the same product into how closely they match the seller's item:
@@ -22,6 +23,8 @@ export type TierListing = {
   sizeSource: "listing details" | "title" | "not stated";
   box: "stated" | "no box" | "not mentioned";
   usedForPrice: boolean;
+  /** "Listed 3 months ago", or "Listing date unknown". */
+  listed: string;
 };
 export type ComparisonTier = { listings: TierListing[]; low: number | null; high: number | null; sellers: number };
 export type ComparisonTiers = {
@@ -96,7 +99,7 @@ function toListing(c: Comparable, usedForPrice: boolean): TierListing {
   const titleBox = /\b(with box|original box|og box|new in box|nib|bnib)\b/.test(t);
   const ebayBox = c.conditionId === "1000" && /\bnew with box\b/i.test(c.condition);
   const box: TierListing["box"] = titleNoBox || c.statedPackaging === "none" || (c.conditionId === "1500" && /without box/i.test(c.condition)) ? "no box" : titleBox || ebayBox || c.statedPackaging === "original" ? "stated" : "not mentioned";
-  return { id: c.id, title: c.title, price: c.price, url: c.url, image: c.image ?? null, condition: c.condition, size, sizeSource: c.aspects?.size ? "listing details" : titleSize ? "title" : "not stated", box, usedForPrice };
+  return { id: c.id, title: c.title, price: c.price, url: c.url, image: c.image ?? null, condition: c.condition, size, sizeSource: c.aspects?.size ? "listing details" : titleSize ? "title" : "not stated", box, usedForPrice, listed: listedAgoLabel(listingAge(c)) };
 }
 
 function summarize(placed: { listing: TierListing; seller: string | null }[]): ComparisonTier {

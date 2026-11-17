@@ -125,6 +125,8 @@ export function LiveReport() {
   const sized = /sneaker|shoe|footwear|boot|apparel|clothing|shirt|hoodie|jacket|pants|dress/i.test(`${item.category || ""} ${item.productName || ""}`);
   // eBay found plenty of verified listings, but their asks are too spread out for one price.
   const dispersed = !expired && recommendation?.askingDistribution && recommendation.blockers.some((b) => /vary too widely/.test(b)) ? recommendation.askingDistribution : null;
+  // The recent-market reference band (asking prices), shown in the headline when no price is recommended.
+  const recentBand = dispersed && recommendation?.marketBands?.recent?.sufficient ? recommendation.marketBands.recent : null;
   const hasReference = !expired && (!!recommendation?.marketReference || !!mercariEvidence?.recommendation.marketReference);
   const browse: BrowserEvidence[] = [
     ...(result && result.status !== "unavailable" && recommendation ? [{ provider: "ebay" as const, result, recommendation }] : []),
@@ -158,7 +160,7 @@ export function LiveReport() {
           ) : (
             <>
               <p className="price-value is-empty">{dispersed ? "Prices vary too much" : "Not enough data"}</p>
-              <p className="muted">{dispersed ? `Verified listings for your item ask ${dollars(dispersed.p25)}–${dollars(dispersed.p75)} (middle half), too wide for one fair price. Set your own price below.` : <>We couldn&apos;t find enough similar listings{d.size ? ` in size ${d.size}` : ""} to suggest a price{missingKeyDetails && sized ? ". Adding the size and condition usually helps." : "."}</>}</p>
+              <p className="muted">{recentBand ? `Recent listings (first listed in the past year) ask ${dollars(recentBand.p25)}–${dollars(recentBand.p75)}, median ${dollars(recentBand.median)}. All verified listings vary too much for one recommended price. Set your own price below.` : dispersed ? `Verified listings for your item ask ${dollars(dispersed.p25)}–${dollars(dispersed.p75)} (middle half), too wide for one fair price. Set your own price below.` : <>We couldn&apos;t find enough similar listings{d.size ? ` in size ${d.size}` : ""} to suggest a price{missingKeyDetails && sized ? ". Adding the size and condition usually helps." : "."}</>}</p>
               {hasReference && <p className="muted">A broader asking-price reference is shown alongside. It isn&apos;t a price for your {d.size ? "size" : "exact item"}.</p>}
               {missingKeyDetails && sized && (
                 <button type="button" className="text-link" onClick={() => setRefineOpen(true)}>Add size and condition</button>
