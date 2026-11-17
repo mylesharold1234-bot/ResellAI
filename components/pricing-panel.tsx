@@ -71,7 +71,7 @@ export function PricingPanel({
   children?: ReactNode;
   historical?: number | null;
   snapshotNotice?: string;
-  details?: Pick<MatchDetails, "size" | "condition">;
+  details?: Pick<MatchDetails, "size" | "condition"> & Partial<Pick<MatchDetails, "packaging">>;
   options?: PricingOptions;
   onChange?: (value: PricingOptions) => void;
 }) {

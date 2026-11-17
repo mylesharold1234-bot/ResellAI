@@ -6,8 +6,9 @@ import {RetrievalDiagnostics} from "./retrieval-diagnostics";
 import {PricingPanel,dollars} from "./pricing-panel";
 import type {PricingEvidence} from "../lib/pricing-intelligence";
 import {useRequest} from "./use-request";
+import type {ComparisonTiers} from "../lib/comparison-tiers";
 
-type Data={result:MarketplaceResult;recommendation:ReturnType<typeof recommend>;snapshot?:{version:string;updatedAt:string;persisted?:boolean}};
+type Data={result:MarketplaceResult;recommendation:ReturnType<typeof recommend>;snapshot?:{version:string;updatedAt:string;persisted?:boolean};tiers?:ComparisonTiers|null};
 export function MercariPricing({query,now,confirmationId,onEvidence}:{query:ProductQuery;now:number;confirmationId:string|null;onEvidence:(scope:string,data:PricingEvidence|null)=>void}){
   const scope=JSON.stringify(query);
   const {state,run,previous}=useRequest<Data>(scope);

@@ -6,6 +6,7 @@ import { parseIdentification } from "./identification";
 import { parseMatchDetails } from "./marketplaces";
 import type { MarketplaceProvider } from "./marketplaces";
 import { recommend } from "./valuation";
+import { comparisonTiers } from "./comparison-tiers";
 export function createMarketplaceHandler(provider: MarketplaceProvider, snapshots?:ReturnType<typeof createDailySnapshots>) {
   return async function (request: Request) {
     const json = (body: unknown, status = 200) =>
@@ -59,7 +60,11 @@ export function createMarketplaceHandler(provider: MarketplaceProvider, snapshot
     try {
       const saved=snapshots?await snapshots(provider,query,refresh):null;
       const result = saved?.result??await provider.search(query);
-      return json({ result:{...result,evidenceId:result.provider==="ebay"?saveEvidence(result,query):undefined}, recommendation: saved?.recommendation??recommend(result, query,pricingOptions), snapshot:saved?.snapshot });
+      const recommendation = saved?.recommendation??recommend(result, query,pricingOptions);
+      // Listings grouped by how closely they match (same size/condition, same size, same condition).
+      // Recomputed from the saved listings, so older snapshots get it too; it never changes the price.
+      const tiers = result.status==="unavailable"?null:comparisonTiers(result, query, recommendation.suggestedListingPrice===null?[]:recommendation.eligibleIds);
+      return json({ result:{...result,evidenceId:result.provider==="ebay"?saveEvidence(result,query):undefined}, recommendation, snapshot:saved?.snapshot, tiers });
     } catch {
       return json(
         { error: "Marketplace search failed. No prices were calculated." },

@@ -27,7 +27,7 @@ const money = (n: number) => new Intl.NumberFormat("en-US", { style: "currency",
 export function explainPricing(
   marketplace: "eBay" | "Mercari",
   rec: ExplainableRecommendation | null | undefined,
-  details: Pick<MatchDetails, "size" | "condition"> = { size: "", condition: "" },
+  details: Pick<MatchDetails, "size" | "condition"> & Partial<Pick<MatchDetails, "packaging">> = { size: "", condition: "" },
   { expired = false }: { expired?: boolean } = {},
 ): PricingExplanation {
   if (expired) return { state: "unavailable", headline: "These prices are out of date.", suggestion: "Refresh to check current listings." };
@@ -41,6 +41,8 @@ export function explainPricing(
   const b = rec.blockers.join(" ");
   const size = details.size?.trim();
   const condition = details.condition;
+  // What the engine actually checked for "your item", so the count matches what sellers see in the tiers.
+  const checked = condition ? (details.packaging === "original" ? "size, condition and box" : "size and condition") : "size";
   if (/Current production .* listings are unavailable/.test(b))
     return { state: "unavailable", headline: `${marketplace} prices aren't available right now.`, suggestion: "Try again in a few minutes." };
   if (/Refresh comparisons/.test(b)) return { state: "unavailable", headline: "These prices are out of date.", suggestion: "Refresh to check current listings." };
@@ -63,8 +65,12 @@ export function explainPricing(
     return {
       state: "unavailable",
       headline: size ? `Not enough ${marketplace} listings in size ${size} to price this confidently.` : `Not enough similar ${marketplace} listings right now.`,
-      detail: size && marketplace === "Mercari" ? "Most Mercari listings don't state a size, so few can be compared with yours." : undefined,
-      suggestion: size ? undefined : "Adding the exact model or size can help.",
+      detail: size
+        ? !rec.eligibleCount
+          ? `None of the ${marketplace} listings found match your ${checked}. A price needs at least 3.`
+          : `Only ${rec.eligibleCount} ${marketplace} ${rec.eligibleCount === 1 ? "listing matches" : "listings match"} your ${checked}. A price needs at least 3.`
+        : undefined,
+      suggestion: size ? (marketplace === "Mercari" ? "The closest Mercari listings are grouped below under Mercari listings by match." : undefined) : "Adding the exact model or size can help.",
     };
   if (/two identified sellers/.test(b)) return { state: "unavailable", headline: `Too few different ${marketplace} sellers to rely on.` };
   if (/buyer shipping charge/.test(b)) return { state: "unavailable", headline: "The shipping charge is higher than the price.", suggestion: "Lower the buyer shipping charge." };

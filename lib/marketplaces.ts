@@ -54,6 +54,8 @@ export type Comparable = {
   aspects?: ListingAspects;
   /** eBay item-group id for a multi-variation listing, so its per-size variations can be checked. */
   itemGroupId?: string;
+  /** Box status the seller states plainly in the listing description (Mercari). Never inferred. */
+  statedPackaging?: "original" | "none";
 };
 export type ListingAspects = {
   /** Shoe size exactly as eBay states it, e.g. "10". */

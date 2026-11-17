@@ -31,6 +31,11 @@ export function footwearVariantConflict(title:string,q:ProductQuery):string|null
  const namedColor=/\b(?:olive|teal|coral|amethyst|cream|(?:hyper |game |sport )?royal|university blue|obsidian|coconut milk|tropical twist|zen master|graffiti|doodle|(?:bright )?cactus|turquoise|denim|gum)\b/;
  // Nike SB Dunks: e.g. "Dunk Low Pro SB Black White Gum" (HF3704-003) is not a regular Dunk Low.
  if(/\bdunk\b/.test(wanted)&&/\b(?:sb|pro sb)\b/.test(t)&&!/\bsb\b/.test(wanted))return "distinct_edition_unconfirmed";
+ // Separate Dunk models sold under the same name: Twist (e.g. DZ2794-001 "Twist Panda"), Next Nature,
+ // Disrupt, Jumbo and Scrap have their own construction and prices.
+ // ("Tropical Twist" is a colorway, not the Twist model.)
+ const line=/\b((?<!tropical )twist|next nature|disrupt|jumbo|scrap)\b/.exec(t);
+ if(/\bdunk\b/.test(wanted)&&line&&!new RegExp("\\b"+line[1]+"\\b").test(wanted))return "distinct_edition_unconfirmed";
  if(blackWhite&&namedColor.test(t)&&!namedColor.test(wanted+" "+normalize(q.identification.colorway||"")))return "conflicting_colorway";
  return null;
 }

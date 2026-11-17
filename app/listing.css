@@ -373,3 +373,16 @@
   .comp-price { grid-column: 2; grid-row: 2; margin-top: -2px }
   .comp-filter, .comp-filter select { width: 100%; min-width: 0 }
 }
+
+/* Report: one marketplace's listings grouped by how closely they match */
+.tiers { display: grid; gap: 22px }
+.tier { display: grid; gap: 8px }
+.tier + .tier { padding-top: 18px; border-top: 1px solid var(--border) }
+.tier-title { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; margin: 0 }
+.tier-n { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 999px; background: var(--subtle-2); color: var(--text-2); font-size: 12px; font-weight: 600; flex: none }
+.tier-summary { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--text-2); margin: 0 }
+.tier-summary span + span { color: var(--text); font-variant-numeric: tabular-nums }
+.tier-note { margin: 0 }
+.tier-empty { font-size: 14px; color: var(--text-2); margin: 0 }
+.tier-more { justify-self: start; font-size: 13px }
+.tier .market-ref { margin-top: 0 }

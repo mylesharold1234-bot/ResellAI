@@ -18,6 +18,7 @@ import type {PricingEvidence} from "../lib/pricing-intelligence";
 import { MercariPricing } from "./mercari-pricing";
 import { CreateListingButton } from "./listing/create-listing-button";
 import { ComparableBrowser } from "./comparable-browser";
+import { ComparisonTiersView } from "./comparison-tiers";
 import { listingCounts, type BrowserEvidence } from "../lib/comparable-browser";
 type ReportData = {
   result: MarketplaceResult;
@@ -228,6 +229,20 @@ export function LiveReport() {
                 </div>
               )}
               <ComparableBrowser sources={browse} size={d.size} />
+            </div>
+          </details>
+        )}
+
+        {mercariEvidence?.tiers && (
+          <details className="disclosure">
+            <summary>
+              Mercari listings by match{" "}
+              <small>
+                {mercariEvidence.tiers.exact.listings.length} same size and condition · {mercariEvidence.tiers.sameSizeOtherCondition.listings.length} same size · {mercariEvidence.tiers.sameConditionOtherSize.listings.length} same condition
+              </small>
+            </summary>
+            <div className="disclosure-body">
+              <ComparisonTiersView tiers={mercariEvidence.tiers} marketplace="Mercari" reference={expired ? null : mercariEvidence.recommendation.marketReference} />
             </div>
           </details>
         )}

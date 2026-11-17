@@ -1,6 +1,7 @@
 import {retrievalDiagnostics,sufficientSearchEvidence} from "../retrieval-diagnostics";
 import {scoreComparable} from "../comparable-quality";
 import {matchMercari} from "../mercari-matching";
+import {statedPackaging} from "../product-matching";
 import {searchPlan} from "../ebay-search";
 import type {Comparable,ListingAspects,MarketplaceProvider,MarketplaceResult,ProductQuery} from "../marketplaces";
 
@@ -24,6 +25,14 @@ export function mercariAspects(x:Row):ListingAspects|null{
   const top=Array.isArray(x.categories)&&object(x.categories[0])&&typeof x.categories[0].name==="string"?x.categories[0].name.trim():"";
   if(/^(?:Men|Women|Kids)$/.test(top))out.department=top;
   return out.size||out.department?out:null;
+}
+/** The listing's own thumbnail, only from Mercari's image host over HTTPS. Display only. */
+export function mercariImage(x:Row):string|null{
+  for(const raw of [x.thumbnail,...(Array.isArray(x.photos)?x.photos:[])]){
+    if(typeof raw!=="string"||raw.length>500)continue;
+    try{const u=new URL(raw);if(u.protocol==="https:"&&!u.username&&!u.password&&!u.port&&u.hostname.endsWith(".mercdn.net"))return u.href;}catch{}
+  }
+  return null;
 }
 export function normalizeMercari(body:unknown,stamp:string) {
   if(!object(body)||body.success===false||body.country!=="US"||!Array.isArray(body.items)||body.items.length>limit)
@@ -54,7 +63,9 @@ export function normalizeMercari(body:unknown,stamp:string) {
       condition:conditionLabel,conditionId,url:url.origin+url.pathname,observedAt:stamp,shipping:x.free_shipping===true?0:null,
       seller:typeof x.seller_id==="string"&&x.seller_id?x.seller_id.slice(0,100):null,
       categories:Array.isArray(x.categories)?x.categories.filter(object).flatMap(c=>typeof c.name==="string"?[c.name.slice(0,80)]:[]).slice(0,10):[],
-      matchReasons:[],warnings:[],...(()=>{const aspects=mercariAspects(x);return aspects?{aspects}:{};})()});
+      matchReasons:[],warnings:[],...(()=>{const aspects=mercariAspects(x);return aspects?{aspects}:{};})(),
+      ...(()=>{const box=typeof x.description==="string"?statedPackaging(x.description.slice(0,2000)):null;return box?{statedPackaging:box}:{};})(),
+      ...(()=>{const image=mercariImage(x);return image?{image}:{};})()});
   }
   const credits=typeof body.credits_used==="number"&&Number.isSafeInteger(body.credits_used)&&body.credits_used>=0?body.credits_used:null;
   return {items,examined:body.items.length,duplicateRows,credits,providerCached:body.cached===true};

@@ -46,7 +46,10 @@ test("Mercari price failures are explained plainly, without inventing a price", 
   assert.equal(spread.suggestion, "Add the size and condition for a tighter estimate.");
   const sized = explainPricing("Mercari", { suggestedListingPrice: null, blockers: ["At least three eligible listings are needed. Confirm the model, variant and condition, then refresh comparisons."], statistics: null }, { size: "10", condition: "new" });
   assert.equal(sized.headline, "Not enough Mercari listings in size 10 to price this confidently.");
-  assert.match(sized.detail || "", /don't state a size/);
+  assert.equal(sized.detail, "None of the Mercari listings found match your size and condition. A price needs at least 3.");
+  const one = explainPricing("Mercari", { suggestedListingPrice: null, blockers: ["At least three eligible listings are needed. Confirm the model, variant and condition, then refresh comparisons."], statistics: { count: 1, median: 80.75, lowest: 80.75, highest: 80.75 }, eligibleCount: 1 }, { size: "10", condition: "new", packaging: "original" });
+  assert.equal(one.detail, "Only 1 Mercari listing matches your size, condition and box. A price needs at least 3.");
+  assert.match(one.suggestion || "", /Mercari listings by match/);
   assert.equal(explainPricing("eBay", { suggestedListingPrice: 65, blockers: [], statistics: { count: 9, median: 65, lowest: 55, highest: 77 }, eligibleCount: 9 }).state, "priced");
   assert.equal(explainPricing("eBay", null, undefined, { expired: true }).headline, "These prices are out of date.");
   for (const e of [spread, sized]) assert.ok(!/cohort|MAD|spread|eligible|safeguard/i.test(JSON.stringify(e)), "no developer jargon");

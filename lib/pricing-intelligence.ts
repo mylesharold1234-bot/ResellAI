@@ -1,7 +1,8 @@
+import type {ComparisonTiers} from './comparison-tiers';
 import type {recommend} from "./valuation";
 import type {MarketplaceResult} from "./marketplaces";
 
-export type PricingEvidence={result:MarketplaceResult;recommendation:ReturnType<typeof recommend>};
+export type PricingEvidence={result:MarketplaceResult;recommendation:ReturnType<typeof recommend>;tiers?:ComparisonTiers|null};
 type Recommendation=PricingEvidence["recommendation"];
 export function evidenceQuality(rec:Recommendation){
  const {spread,sellerCount}=rec.pricingDiagnostics??{};

@@ -211,15 +211,17 @@ export function matchComparable(
   // eBay's own condition "New with box" / "New without box" is structured packaging evidence.
   const ebayWithBox = item.conditionId === "1000" && /\bnew with box\b/i.test(item.condition);
   const ebayWithoutBox = item.conditionId === "1500" && /\bnew without box\b/i.test(item.condition);
+  // A seller's description that states the box plainly (Mercari has no structured box field).
+  const describedBox = item.statedPackaging === "original", describedNoBox = item.statedPackaging === "none";
   if (d.packaging === "original") {
     const titleBox = /\b(with box|original box|og box|new in box|nib)\b/.test(title);
-    if ((!titleBox && !ebayWithBox) || ebayWithoutBox || /\b(no box|without box|replacement box)\b/.test(title)) return fail();
-    reasons.push(titleBox ? "Original packaging indicated in title" : "Original box stated in eBay's condition (New with box)");
+    if ((!titleBox && !ebayWithBox && !describedBox) || ebayWithoutBox || describedNoBox || /\b(no box|without box|replacement box)\b/.test(title)) return fail();
+    reasons.push(titleBox ? "Original packaging indicated in title" : ebayWithBox ? "Original box stated in eBay's condition (New with box)" : "Original box stated in the seller's description");
   }
   if (d.packaging === "none") {
     const titleNoBox = /\b(no box|without box)\b/.test(title);
-    if ((!titleNoBox && !ebayWithoutBox) || ebayWithBox) return fail();
-    reasons.push(titleNoBox ? "No-box packaging indicated in title" : "No box stated in eBay's condition (New without box)");
+    if ((!titleNoBox && !ebayWithoutBox && !describedNoBox) || ebayWithBox || describedBox) return fail();
+    reasons.push(titleNoBox ? "No-box packaging indicated in title" : ebayWithoutBox ? "No box stated in eBay's condition (New without box)" : "No box stated in the seller's description");
   }
   if (!d.packaging) warnings.push("Packaging not checked");
   if (shoe && !d.productIdentifier) warnings.push("Exact release unverified; similar-listing evidence only unless other verified attributes establish the variant");
@@ -325,4 +327,17 @@ export function sizeEvidence(item: Comparable, d: MatchDetails, title: string, p
   if (d.sizeSystem.startsWith("US") && /\b(uk|eu)\b/.test(title) && !new RegExp(`\\bus\\s*${escaped}(?![\\d.])`).test(title) && !notation)
     return { ok: false, reason: "size_or_sizing_group_unverified" };
   return { ok: true, reason: "Size and sizing group evidenced in title" };
+}
+
+/**
+ * Packaging a seller states plainly in free text ("Brand new in original box", "No box"). Shoe-part
+ * phrases ("toe box") are ignored, and text that says both, such as "No original box included",
+ * proves nothing either way. Returns null unless the statement is unambiguous.
+ */
+export function statedPackaging(text: string): "original" | "none" | null {
+  const t = normalize(text).replace(/\btoe ?box(?:es)?\b/g, " ");
+  const none = /\b(?:no (?:original |og |nike )?box|without (?:the |a |an |its |original |og )*box|box (?:is )?(?:not included|missing)|missing (?:the )?box|replacement box)\b/.test(t);
+  const withBox = /\b(?:new in (?:original |og )?box|nib|bnib|(?:comes with|includes?|including|with|w) (?:the |its |a )?(?:original |og |nike )?box|(?:original|og|nike) box (?:is )?included|box included|og all)\b/.test(t);
+  if (none && withBox) return null;
+  return none ? "none" : withBox ? "original" : null;
 }
