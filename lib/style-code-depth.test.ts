@@ -133,3 +133,30 @@ test("eBay depth: style-code pages, skipped title searches, stock-checked variat
   assert.equal(few.searchDiagnostics!.attempts[0].stage, "S1");
   assert.ok(!few.searchDiagnostics!.attempts.some((a) => a.stage === "S2"));
 });
+
+test("a size-filtered search returns the matching variation's own id; the size check replaces that row instead of skipping it", async () => {
+  // Seen live on 2026-11-17: the search returned v1|227526212328|526696519887, which is exactly the in-stock
+  // size-10 variation of that multi-size listing. Treating it as already seen left every such listing unverified.
+  const variationId = "v1|500001|526696519887";
+  const summary = (itemId: string, extra: Record<string, unknown> = {}) => ({ itemId, title: "Nike Dunk Low Black White Panda Lace Up Athletic Sneakers DD1391-100 Men's Sizes", price: { value: "69.97", currency: "USD" }, condition: "New with box", conditionId: "1000", itemWebUrl: "https://www.ebay.com/itm/500001", buyingOptions: ["FIXED_PRICE"], seller: { username: "u500001" }, ...extra });
+  const fetcher: typeof fetch = async (input) => {
+    const url = new URL(String(input));
+    if (url.pathname.endsWith("/oauth2/token")) return Response.json({ access_token: "t", expires_in: 7200 });
+    if (url.pathname.endsWith("item_summary/search"))
+      return Response.json({ total: 1, itemSummaries: [summary(variationId, { itemGroupHref: "https://api.ebay.com/buy/browse/v1/item/get_items_by_item_group?item_group_id=500001", itemGroupType: "SELLER_DEFINED_VARIATIONS" })] });
+    if (url.pathname.endsWith("get_items_by_item_group"))
+      return Response.json({ items: [
+        { ...summary("v1|500001|526696519886"), localizedAspects: [{ name: "US Shoe Size", value: "9.5" }], estimatedAvailabilities: [{ estimatedAvailabilityStatus: "OUT_OF_STOCK" }] },
+        { ...summary(variationId), itemWebUrl: "https://www.ebay.com/itm/500001?var=526696519887", localizedAspects: [{ name: "US Shoe Size", value: "10" }, { name: "Style Code", value: "DD1391-100" }], estimatedAvailabilities: [{ estimatedAvailabilityStatus: "IN_STOCK" }] },
+      ] });
+    return new Response("not found", { status: 404 });
+  };
+  const result = await createEbayProvider({ clientId: "id", clientSecret: "secret", environment: "production", productionApproved: true, fetcher, now: () => now }).search(coded);
+  const rows = result.comparables.filter((c) => c.id === variationId);
+  assert.equal(rows.length, 1, "replaced, not duplicated");
+  assert.equal(rows[0].priceEligible, true);
+  assert.equal(rows[0].itemGroupId, undefined);
+  assert.equal(rows[0].aspects?.source, "ebay-item-group");
+  assert.equal(result.searchDiagnostics!.enrichment!.variationsFound, 1);
+  assert.match(result.diagnostics!.rows.find((r) => r.id === variationId)!.stage, /eBay size variation/);
+});

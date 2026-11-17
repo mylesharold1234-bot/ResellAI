@@ -482,13 +482,25 @@ export function createEbayProvider({
                 if(availability==='OUT_OF_STOCK'){out.variationsOutOfStock++;continue;}
                 const {itemGroupHref:_h,itemGroupType:_t,...row}=raw;
                 const [variation]=normalizeEbaySearch({total:1,itemSummaries:[row]},environment,stamp).items;
-                if(!variation||seen.has(variation.id))continue;
+                if(!variation)continue;
+                // eBay's size-filtered search returns the matching variation's own id (v1|group|variation), so
+                // the size this check verifies is often the same row the search already returned as
+                // "unverified". Replace that row; skip only ids that were already verified another way.
+                const existing=comparables.findIndex(x=>x.id===variation.id);
+                if(seen.has(variation.id)&&(existing<0||!comparables[existing].itemGroupId))continue;
                 seen.add(variation.id);
                 const source:Comparable={...variation,warnings:variation.warnings.filter(w=>!w.startsWith('Variation selection unverified')),aspects};
                 sources.set(source.id,source);
                 const match=tierComparable(source,query);
-                rowDiagnostics.push({id:source.id,title:source.title,stage:match.item?match.item.matchTier+(match.item.priceEligible?' (candidate, eBay size variation)':' (pricing excluded, eBay size variation)'):'matching',reason:match.reason});
-                if(match.item){comparables.push({...match.item,quality:scoreComparable(match.item)});out.variationsFound++;}
+                const stage=match.item?match.item.matchTier+(match.item.priceEligible?' (candidate, eBay size variation)':' (pricing excluded, eBay size variation)'):'matching';
+                if(existing>=0){
+                  if(match.item)comparables[existing]={...match.item,quality:scoreComparable(match.item)};else comparables.splice(existing,1);
+                  setRow(source.id,source.title,stage,match.reason);
+                }else{
+                  rowDiagnostics.push({id:source.id,title:source.title,stage,reason:match.reason});
+                  if(match.item)comparables.push({...match.item,quality:scoreComparable(match.item)});
+                }
+                if(match.item)out.variationsFound++;
               }
             }
             const unstated=new Set(['size_unverified','sizing_group_unverified','sizing_system_unverified','size_or_sizing_group_unverified',...(styleCode?['identifier_mismatch']:[])]);
