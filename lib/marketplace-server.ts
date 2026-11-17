@@ -5,7 +5,7 @@ import { normalizeProduct, recognizableName } from "./product-profile";
 import { parseIdentification } from "./identification";
 import { parseMatchDetails } from "./marketplaces";
 import type { MarketplaceProvider } from "./marketplaces";
-import { recommend } from "./valuation";
+import { recommend, withCoverage } from "./valuation";
 import { comparisonTiers } from "./comparison-tiers";
 export function createMarketplaceHandler(provider: MarketplaceProvider, snapshots?:ReturnType<typeof createDailySnapshots>) {
   return async function (request: Request) {
@@ -60,7 +60,8 @@ export function createMarketplaceHandler(provider: MarketplaceProvider, snapshot
     try {
       const saved=snapshots?await snapshots(provider,query,refresh):null;
       const result = saved?.result??await provider.search(query);
-      const recommendation = saved?.recommendation??recommend(result, query,pricingOptions);
+      // Saved snapshots from before coverage existed still say whether their sample was partial.
+      const recommendation = saved?.recommendation?withCoverage(saved.recommendation,result):recommend(result, query,pricingOptions);
       // Listings grouped by how closely they match (same size/condition, same size, same condition).
       // Recomputed from the saved listings, so older snapshots get it too; it never changes the price.
       const tiers = result.status==="unavailable"?null:comparisonTiers(result, query, recommendation.suggestedListingPrice===null?[]:recommendation.eligibleIds);

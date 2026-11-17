@@ -1,5 +1,5 @@
 import {nonWearableReason,footwearSignature,supportedFootwear,footwearSubtypeEvidence,listedFootwear,footwearVariantConflict} from "./footwear-compatibility";
-import {styleGroup} from "./style-codes";
+import {canonicalStyleCode,styleGroup} from "./style-codes";
 import {primaryProduct} from './primary-product';
 import {conditionGroup} from './product-matching';
 import {assessIdentification, genericObjectWords, known, normalizeProduct, recognizableName, productProfile, pricingIdentity, jordanEdition} from './product-profile';
@@ -46,10 +46,20 @@ export function searchPlan(query: ProductQuery) {
  if(query.details.productIdentifierVerified && query.details.productIdentifier) candidates.push({stage:'D',query:constrained(full+' '+query.details.productIdentifier,query.details.productIdentifier)});
  const seen=new Set<string>();return candidates.map(x=>({...x,query:x.query})).filter(x=>x.query&&!seen.has(x.query)&&!!seen.add(x.query)).slice(0,4);
 }
+export type SizedStep={stage:string;query:string;categoryId:string;aspectFilter:string;department:string;size:string;conditionIds:string;limit:number;offset:number;styleCode:string|null};
 /**
- * A size-filtered eBay search: eBay's own "US Shoe Size" item specific within the men's (15709) or
- * women's (95672) Athletic Shoes category. Only for a confirmed, plain US men's or women's shoe size.
+ * Size-filtered eBay searches: eBay's own "US Shoe Size" item specific within the men's (15709) or
+ * women's (95672) Athletic Shoes category, for a confirmed plain US men's or women's shoe size.
+ * With a seller-confirmed style code, the code is the query and two pages of 200 are read (eBay listed
+ * about 520 new size 10 DD1391-100 pairs on 2026-11-17); otherwise one page of 200 for the model name.
  */
+export function sizedSearches(query:ProductQuery):SizedStep[]{
+ const base=sizedSearch(query);
+ if(!base)return [];
+ const code=query.details.productIdentifierVerified?canonicalStyleCode(query.details.productIdentifier):null;
+ if(!code)return [{...base,limit:200,offset:0,styleCode:null}];
+ return [{...base,stage:'S1',query:code,limit:200,offset:0,styleCode:code},{...base,stage:'S2',query:code,limit:200,offset:200,styleCode:code}];
+}
 export function sizedSearch(query:ProductQuery){
  const d=query.details;
  const i=normalizeProduct(query.identification);
@@ -62,7 +72,7 @@ export function sizedSearch(query:ProductQuery){
  return {stage:'S',query:text,categoryId,aspectFilter:`categoryId:${categoryId},US Shoe Size:{${String(Number(size))}}`,
   department:d.sizeSystem==='US Men'?'Men':'Women',size:String(Number(size)),conditionIds:d.condition==='new'?'1000|1500|1750':''};
 }
-export function searchCacheKey(query:ProductQuery){return createHash('sha256').update(JSON.stringify({version:21,identification:query.identification,details:query.details})).digest('hex').slice(0,24);}
+export function searchCacheKey(query:ProductQuery){return createHash('sha256').update(JSON.stringify({version:22,identification:query.identification,details:query.details})).digest('hex').slice(0,24);}
 export function tierComparable(item:Comparable,query:ProductQuery):{item:Comparable|null;reason:string}{
  const nonWearable=nonWearableReason(item,query);
  if(nonWearable)return {item:null,reason:nonWearable};

@@ -19,6 +19,30 @@ export function supportedPrice(rec: Recommendation | undefined | null) {
 }
 
 /**
+ * Where verified asking prices sit when they're too spread out for one defensible price: the middle half,
+ * the median and the extremes. Never styled or worded as a recommendation.
+ */
+export function AskingDistribution({ d, marketplace }: { d: NonNullable<Recommendation["askingDistribution"]>; marketplace: "eBay" | "Mercari" }) {
+  const span = Math.max(1, d.max - d.min);
+  const at = (v: number) => `${Math.round(((v - d.min) / span) * 100)}%`;
+  return (
+    <aside className="ask-dist" aria-label={`${marketplace} verified asking prices`}>
+      <p className="market-ref-head">
+        <span className="pill">Not a recommendation</span>
+        <span>{d.count} verified listings · {d.sellers} sellers</span>
+      </p>
+      <p className="ask-dist-mid">Middle half asks {whole(d.p25)}–{whole(d.p75)} <span className="muted">· median {whole(d.median)}</span></p>
+      <div className="ask-dist-bar" aria-hidden="true">
+        <span className="ask-dist-iqr" style={{ left: at(d.p25), width: `calc(${at(d.p75)} - ${at(d.p25)})` }} />
+        <span className="ask-dist-median" style={{ left: at(d.median) }} />
+      </div>
+      <p className="ask-dist-ends fine"><span>Lowest {whole(d.min)}</span><span>Highest {whole(d.max)}</span></p>
+      <p className="fine">Current asking prices for your item, not sales. They vary too much for one fair price, so pick yours from where you&apos;d like to sell.</p>
+    </aside>
+  );
+}
+
+/**
  * A broader asking-price reference: same model, condition and colors across sizes. Deliberately styled and
  * worded so it can never be read as a price for the seller's own size.
  */
@@ -71,7 +95,7 @@ export function PricingPanel({
   children?: ReactNode;
   historical?: number | null;
   snapshotNotice?: string;
-  details?: Pick<MatchDetails, "size" | "condition"> & Partial<Pick<MatchDetails, "packaging">>;
+  details?: Pick<MatchDetails, "size" | "condition"> & Partial<Pick<MatchDetails, "packaging" | "productIdentifier" | "productIdentifierVerified">>;
   options?: PricingOptions;
   onChange?: (value: PricingOptions) => void;
 }) {
@@ -82,7 +106,8 @@ export function PricingPanel({
   const range = rec?.indicativeAskingRange ?? null;
   const price = supportedPrice(rec);
   const explanation = explainPricing(marketplace, rec, details, { expired: expired && !old });
-  const estimated = marketplace === "Mercari" && !!rec?.provisional;
+  // A partial sample's price is an estimate on either marketplace; Mercari's close-match prices always are.
+  const estimated = (marketplace === "Mercari" && !!rec?.provisional) || !!rec?.sampleCoverage?.partial;
   return (
     <section className="market-row" aria-label={`${marketplace} price`}>
       <div className="market-row-head">
@@ -102,6 +127,8 @@ export function PricingPanel({
             {explanation.headline}
             {range ? ` Most ask ${whole(range.low)}–${whole(range.high)}.` : ""}
           </p>
+          {rec?.sampleCoverage?.partial && explanation.detail && <p className="market-hint fine">{explanation.detail}</p>}
+          {rec?.sampleCoverage?.partial && explanation.suggestion && <p className="market-hint">{explanation.suggestion}</p>}
           {loading && <p className="fine"><RequestSpinner size={13} /> Updating…</p>}
         </>
       ) : requestStatus === "idle" && !rec ? (
@@ -114,6 +141,7 @@ export function PricingPanel({
             {explanation.detail ? ` ${explanation.detail}` : ""}
           </p>
           {explanation.suggestion && <p className="market-hint">{explanation.suggestion}</p>}
+          {!expired && rec?.askingDistribution && rec.blockers.some((b) => /vary too widely/.test(b)) && <AskingDistribution d={rec.askingDistribution} marketplace={marketplace} />}
           {!expired && rec?.marketReference && <BroaderReference reference={rec.marketReference} marketplace={marketplace} size={details?.size} />}
         </>
       )}

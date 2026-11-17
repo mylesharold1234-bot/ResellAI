@@ -123,6 +123,8 @@ export function LiveReport() {
   const best = ebayPrice !== null ? { price: ebayPrice, market: "eBay", rec: recommendation } : mercariPrice !== null ? { price: mercariPrice, market: "Mercari", rec: mercariEvidence?.recommendation } : null;
   const missingKeyDetails = !d.size || !d.condition;
   const sized = /sneaker|shoe|footwear|boot|apparel|clothing|shirt|hoodie|jacket|pants|dress/i.test(`${item.category || ""} ${item.productName || ""}`);
+  // eBay found plenty of verified listings, but their asks are too spread out for one price.
+  const dispersed = !expired && recommendation?.askingDistribution && recommendation.blockers.some((b) => /vary too widely/.test(b)) ? recommendation.askingDistribution : null;
   const hasReference = !expired && (!!recommendation?.marketReference || !!mercariEvidence?.recommendation.marketReference);
   const browse: BrowserEvidence[] = [
     ...(result && result.status !== "unavailable" && recommendation ? [{ provider: "ebay" as const, result, recommendation }] : []),
@@ -149,14 +151,14 @@ export function LiveReport() {
           {best ? (
             <>
               <p className="price-value">{dollars(best.price)}</p>
-              <p className="muted">From current {best.market} listings. These are asking prices, not completed sales.</p>
+              <p className="muted">{best.rec?.sampleCoverage?.partial ? `An estimate from part of the ${best.market} market. ` : `From current ${best.market} listings. `}These are asking prices, not completed sales.</p>
             </>
           ) : loading || (!mercariEvidence && !!state.confirmationId) ? (
             <p className="price-value is-loading" aria-busy="true"><span className="request-skeleton request-skeleton--price" /></p>
           ) : (
             <>
-              <p className="price-value is-empty">Not enough data</p>
-              <p className="muted">We couldn&apos;t find enough similar listings{d.size ? ` in size ${d.size}` : ""} to suggest a price{missingKeyDetails && sized ? ". Adding the size and condition usually helps." : "."}</p>
+              <p className="price-value is-empty">{dispersed ? "Prices vary too much" : "Not enough data"}</p>
+              <p className="muted">{dispersed ? `Verified listings for your item ask ${dollars(dispersed.p25)}–${dollars(dispersed.p75)} (middle half), too wide for one fair price. Set your own price below.` : <>We couldn&apos;t find enough similar listings{d.size ? ` in size ${d.size}` : ""} to suggest a price{missingKeyDetails && sized ? ". Adding the size and condition usually helps." : "."}</>}</p>
               {hasReference && <p className="muted">A broader asking-price reference is shown alongside. It isn&apos;t a price for your {d.size ? "size" : "exact item"}.</p>}
               {missingKeyDetails && sized && (
                 <button type="button" className="text-link" onClick={() => setRefineOpen(true)}>Add size and condition</button>

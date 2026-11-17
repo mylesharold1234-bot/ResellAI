@@ -1,6 +1,6 @@
 import {wearablePrimaryText} from "./listing-primary-text";
 import type { Comparable, MatchDetails, ProductQuery } from "./marketplaces";
-import { styleCodesIn, styleGroup, type SizingGroup } from "./style-codes";
+import { canonicalStyleCode, styleCodesIn, styleGroup, type SizingGroup } from "./style-codes";
 export const normalize = (text: string) =>
   text
     .toLowerCase()
@@ -126,14 +126,17 @@ export function matchComparable(
         return fail();
   }
   exclusionReason = "identifier_mismatch";
+  // A confirmed style code pins one release and colorway. It can be shown by the title or by eBay's own
+  // "Style Code" item specific for this listing.
+  let identifierConfirmed = false;
   if (d.productIdentifier) {
     const id = normalize(d.productIdentifier);
-    if (
-      !(` ` + title + ` `).includes(` ` + id + ` `) &&
-      !words.includes(id.replace(/ /g, ""))
-    )
-      return fail();
-    reasons.push("User-confirmed product identifier present");
+    const inTitle = (` ` + title + ` `).includes(` ` + id + ` `) || words.includes(id.replace(/ /g, ""));
+    const code = canonicalStyleCode(d.productIdentifier);
+    const inSpecifics = !!code && canonicalStyleCode(item.aspects?.styleCode) === code;
+    if (!inTitle && !inSpecifics) return fail();
+    identifierConfirmed = true;
+    reasons.push(inTitle ? "User-confirmed product identifier present" : "Style code confirmed in eBay item specifics");
   }
   exclusionReason = "colorway_mismatch";
   const colors = tokens(i.colorway || "")
@@ -160,7 +163,10 @@ export function matchComparable(
     .map((t) => (t === "grey" ? "gray" : t));
   const titleColors = title.replace(/\bgrey\b/g, "gray").replace(/\binfrared\b/g, "red").replace(/\bstarfish\b/g, "orange").replace(/\bsail\b/g, "beige");
   const completeColorMatch = includesAll(titleColors, colors);
-  if (colors.length && !completeColorMatch && (!allowPartialColor || !colors.some(c=>tokens(titleColors).includes(c)))) return fail();
+  // With the style code confirmed, a title that just doesn't repeat the colors ("Dunk Low Panda DD1391-100")
+  // is fine; a title that names a different color is still rejected below.
+  if (colors.length && !completeColorMatch && !identifierConfirmed && (!allowPartialColor || !colors.some(c=>tokens(titleColors).includes(c)))) return fail();
+  if (colors.length && !completeColorMatch && identifierConfirmed) reasons.push("Colorway established by the confirmed style code");
   if (
     colors.length &&
     tokens(titleColors).some(

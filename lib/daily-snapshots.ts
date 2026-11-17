@@ -24,7 +24,7 @@ function nextMidnight(time:number,day:string){
 const algorithm="2026-11-11.reference-1";
 // eBay matching changed on 2026-11-15 (structured box/size evidence, style codes, size-filtered search).
 // Mercari keeps its key so today's paid snapshots are reused; tomorrow's snapshot applies the new rules.
-const ebayAlgorithm="2026-11-15.evidence-2";
+const ebayAlgorithm="2026-11-17.depth-3";
 export function snapshotIdentity(provider:string,query:ProductQuery,day:string){
   const {identity,credible}=pricingIdentity(query.identification,query.details);
   const d=query.details;

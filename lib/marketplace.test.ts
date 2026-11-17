@@ -371,7 +371,8 @@ test("official OAuth/search requests, cache, deduplication and expiry work", asy
       assert.equal(params.get("aspect_filter"), "categoryId:15709,US Shoe Size:{9.5}");
     }
     assert.match(String(url), /buyingOptions/);
-    assert.match(String(url), /limit=100/);
+    // The size-filtered search reads 200 results; the title searches read 100.
+    assert.match(String(url), search % 4 === 1 ? /limit=200/ : /limit=100/);
     assert.equal(
       (init?.headers as Record<string, string>)["X-EBAY-C-MARKETPLACE-ID"],
       "EBAY_US",

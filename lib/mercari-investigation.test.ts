@@ -55,7 +55,7 @@ test("Mercari price failures are explained plainly, without inventing a price", 
   for (const e of [spread, sized]) assert.ok(!/cohort|MAD|spread|eligible|safeguard/i.test(JSON.stringify(e)), "no developer jargon");
 });
 
-test("the real 2026-11-14 Dunk Low Mercari search prices once the SB and multi-size listings are excluded", async () => {
+test("the real 2026-11-14 Dunk Low Mercari search: no price from a small subgroup when the main group is dispersed", async () => {
   const { readFileSync } = await import("node:fs");
   const { join } = await import("node:path");
   const { pricingEngine } = await import("./pricing-engine");
@@ -68,9 +68,14 @@ test("the real 2026-11-14 Dunk Low Mercari search prices once the SB and multi-s
     .filter(Boolean) as Comparable[];
   const result = { provider: "mercari" as const, status: "available" as const, environment: "production" as const, query: fixture.query, comparables: matched, retrievedAt: fixture.retrievedAt, expiresAt: fixture.expiresAt, cached: false, examined: 100, excluded: 3, invalid: 0, warnings: [] };
   const rec = pricingEngine(result, q, undefined, Date.parse(fixture.retrievedAt) + 60_000);
-  assert.equal(rec.suggestedListingPrice, 79.31, "matches the same item's Nov 12 result");
-  assert.deepEqual(rec.pricingDiagnostics.prices, [65, 70, 79.31, 90, 100]);
-  assert.ok(rec.pricingDiagnostics.spread! <= 2, "the 2x dispersion safeguard is unchanged and satisfied");
+  // The earlier $79.31 came from 5 "New" listings whose titles don't say "Retro", standing in for the larger
+  // "New Retro" group of the same shoe that asks $36-$122. That split isn't independent product evidence,
+  // so no single price is given; the dispersed group's asking prices are shown instead (2026-11-17 fix).
+  assert.equal(rec.suggestedListingPrice, null);
+  assert.ok(rec.blockers.some((b) => /vary too widely/.test(b)));
+  assert.deepEqual(rec.pricingDiagnostics.blockedCohorts, [{ cohort: "new|low/unspecified", becauseOf: "new|low/retro" }]);
+  assert.ok(rec.reasons.some((r) => r.includes("Not priced from the smaller new · low/unspecified group")));
+  assert.deepEqual(rec.askingDistribution, { count: 6, sellers: 6, min: 36.12, p25: 55.41, median: 73.32, p75: 90.75, max: 122, outliers: 0 });
   assert.ok(!rec.pricingDiagnostics.prices.includes(139.99), "the SB Dunk is not in the evidence");
   assert.ok(!rec.pricingDiagnostics.prices.includes(57), "the multi-size listing is not in the evidence");
   // The "Retro" listings genuinely span $36-$122 across mixed sizes; that group still can't set a price.

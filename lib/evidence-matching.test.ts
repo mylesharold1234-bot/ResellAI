@@ -188,7 +188,7 @@ test("eBay enrichment checks per-size variations and item specifics within a fix
   const provider = createEbayProvider({ clientId: "id", clientSecret: "secret", environment: "production", productionApproved: true, fetcher, now: () => now });
   const result = await provider.search(query);
   assert.equal(result.status, "available");
-  assert.deepEqual({ ...result.searchDiagnostics!.enrichment, skipped: undefined }, { groupsChecked: 1, variationsFound: 1, detailsChecked: 1, detailsWithSize: 1, skipped: undefined });
+  assert.deepEqual({ ...result.searchDiagnostics!.enrichment, skipped: undefined }, { groupsChecked: 1, variationsFound: 1, variationsOutOfStock: 0, detailsChecked: 1, detailsWithSize: 1, detailsWithStyleCode: 1, skipped: undefined });
   const variation = result.comparables.find((c) => c.id === "v1|100001|9")!;
   assert.equal(variation.price, 62.99);
   assert.equal(variation.priceEligible, true);

@@ -1,5 +1,5 @@
 import {createDailySnapshots} from "../../../../lib/daily-snapshots";
-import { createEbayProvider } from "../../../../lib/marketplace-providers/ebay";
+import { createEbayProvider, ebayBudgetFromEnv } from "../../../../lib/marketplace-providers/ebay";
 import { createMarketplaceHandler } from "../../../../lib/marketplace-server";
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -9,5 +9,6 @@ const provider = createEbayProvider({
   environment:
     process.env.EBAY_ENVIRONMENT === "production" ? "production" : "sandbox",
   productionApproved: process.env.EBAY_PRODUCTION_APPROVED === "true",
+  budget: ebayBudgetFromEnv(),
 });
 export const POST = createMarketplaceHandler(provider,process.env.EBAY_ENVIRONMENT==="production"&&process.env.EBAY_PRODUCTION_APPROVED==="true"?createDailySnapshots():undefined);

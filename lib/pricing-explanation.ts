@@ -6,6 +6,7 @@ export type ExplainableRecommendation = {
   blockers: string[];
   statistics: { count: number; lowest: number; highest: number; median: number } | null;
   eligibleCount?: number;
+  sampleCoverage?: { partial: boolean; read: number; reportedTotal: number | null; order: "best-match" | "relevance" };
 };
 
 export type PricingExplanation = {
@@ -27,17 +28,23 @@ const money = (n: number) => new Intl.NumberFormat("en-US", { style: "currency",
 export function explainPricing(
   marketplace: "eBay" | "Mercari",
   rec: ExplainableRecommendation | null | undefined,
-  details: Pick<MatchDetails, "size" | "condition"> & Partial<Pick<MatchDetails, "packaging">> = { size: "", condition: "" },
+  details: Pick<MatchDetails, "size" | "condition"> & Partial<Pick<MatchDetails, "packaging" | "productIdentifier" | "productIdentifierVerified">> = { size: "", condition: "" },
   { expired = false }: { expired?: boolean } = {},
 ): PricingExplanation {
   if (expired) return { state: "unavailable", headline: "These prices are out of date.", suggestion: "Refresh to check current listings." };
   if (!rec) return { state: "unavailable", headline: `Checking ${marketplace} prices…` };
-  if (rec.suggestedListingPrice !== null)
+  if (rec.suggestedListingPrice !== null) {
+    const c = rec.sampleCoverage;
+    const order = c?.order === "relevance" ? `${marketplace}'s relevance` : "eBay's Best Match";
     return {
       state: "priced",
       headline: `Based on ${rec.eligibleCount ?? rec.statistics?.count ?? 0} similar ${marketplace} listings.`,
-      detail: "These are current asking prices, not completed sales.",
+      detail: c?.partial
+        ? `An estimate: we checked the first ${c.read}${c.reportedTotal ? ` of about ${c.reportedTotal.toLocaleString("en-US")}` : ""} ${marketplace} results, in ${order} order, not the whole market. Current asking prices, not completed sales.`
+        : "These are current asking prices, not completed sales.",
+      suggestion: c?.partial && details.size && !details.productIdentifierVerified ? "Add the style code from the box or tag for a fuller check." : undefined,
     };
+  }
   const b = rec.blockers.join(" ");
   const size = details.size?.trim();
   const condition = details.condition;

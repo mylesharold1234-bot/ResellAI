@@ -1,4 +1,5 @@
-import { normalizeProduct, recognizableName, type FieldSources } from "./product-profile";
+import { normalizeProduct, productProfile, recognizableName, type FieldSources } from "./product-profile";
+import { styleCodeFromText } from "./style-codes";
 import {
   emptyMatchDetails,
   parseMatchDetails,
@@ -59,7 +60,8 @@ export function identificationReducer(
           condition: state.details.condition || (action.identification.understanding?.evidence.some(e=>e.field==="describedCondition"&&e.source==="user-described") ? /for parts|not working/i.test(action.identification.understanding.describedCondition||"") ? "parts" : /used|pre.?owned/i.test(action.identification.understanding.describedCondition||"") ? "used" : /new|unused/i.test(action.identification.understanding.describedCondition||"") ? "new" : "" : ""),
           subtype: action.identification.understanding?.subtype || "",
           includedAccessories: (action.identification.understanding?.includedAccessories || []).join(", "),
-          productIdentifier: "",
+          // A sneaker style code the photo shows legibly is suggested, but the seller must confirm it.
+          productIdentifier: productProfile(action.identification).kind === "footwear" ? styleCodeFromText(action.identification.identifyingInformation) || "" : "",
           productIdentifierVerified: false,
         },
         confirmed: null,

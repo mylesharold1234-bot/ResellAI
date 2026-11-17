@@ -7,7 +7,8 @@ import type {
   MarketplaceResult,
   ProductQuery,
 } from "../marketplaces";
-import { searchPlan, searchCacheKey, sizedSearch, tierComparable } from "../ebay-search";
+import { searchPlan, searchCacheKey, sizedSearches, tierComparable } from "../ebay-search";
+import { styleCodesIn } from "../style-codes";
 export class EbayError extends Error {
   constructor(
     message: string,
@@ -201,6 +202,7 @@ export function normalizeEbaySearch(
   }
   return {
     exclusions, diagnostics,
+    total: typeof body.total === "number" && Number.isFinite(body.total) && body.total >= 0 ? body.total : null,
     items: result,
     invalid,
     examined: rows.length,
@@ -210,6 +212,27 @@ export function normalizeEbaySearch(
         : [],
   };
 }
+/**
+ * How many eBay requests one item search may use. eBay's Browse API is free within the app's daily
+ * allowance (5,000 calls by default), so this protects that allowance rather than spending money.
+ * - pages: pages of 200 read for a confirmed style code (1–2)
+ * - variationChecks / detailChecks: multi-size listings and listing details checked per search (0–20)
+ * - hourlyRequests: all eBay requests from this server per hour (20–1000)
+ */
+export type EbaySearchBudget = { pages: number; variationChecks: number; detailChecks: number; hourlyRequests: number };
+export const defaultEbayBudget: EbaySearchBudget = { pages: 2, variationChecks: 10, detailChecks: 10, hourlyRequests: 100 };
+export function ebayBudgetFromEnv(env: Record<string, string | undefined> = process.env): EbaySearchBudget {
+  const read = (name: string, fallback: number, min: number, max: number) => {
+    const v = Number(env[name]);
+    return env[name]?.trim() && Number.isInteger(v) ? Math.min(max, Math.max(min, v)) : fallback;
+  };
+  return {
+    pages: read("EBAY_STYLE_CODE_PAGES", defaultEbayBudget.pages, 1, 2),
+    variationChecks: read("EBAY_VARIATION_CHECKS", defaultEbayBudget.variationChecks, 0, 20),
+    detailChecks: read("EBAY_DETAIL_CHECKS", defaultEbayBudget.detailChecks, 0, 20),
+    hourlyRequests: read("EBAY_HOURLY_REQUEST_LIMIT", defaultEbayBudget.hourlyRequests, 20, 1000),
+  };
+}
 export function createEbayProvider({
   clientId,
   clientSecret,
@@ -217,6 +240,7 @@ export function createEbayProvider({
   productionApproved = false,
   fetcher = fetch,
   now = Date.now,
+  budget: budgetOverrides = {},
 }: {
   clientId?: string;
   clientSecret?: string;
@@ -224,7 +248,9 @@ export function createEbayProvider({
   productionApproved?: boolean;
   fetcher?: typeof fetch;
   now?: () => number;
+  budget?: Partial<EbaySearchBudget>;
 }): MarketplaceProvider {
+  const limits: EbaySearchBudget = { ...defaultEbayBudget, ...budgetOverrides };
   clientId = clientId?.trim();
   clientSecret = clientSecret?.trim();
   const base =
@@ -392,7 +418,7 @@ export function createEbayProvider({
           Math.ceil((cooldownUntil - now()) / 1000),
         );
       requests = requests.filter((t) => t > now() - 3600000);
-      if (active >= 2 || requests.length >= 100)
+      if (active >= 2 || requests.length >= limits.hourlyRequests)
         return failure(
           text,
           "Local marketplace request limit reached. Try again later.",
@@ -413,24 +439,33 @@ export function createEbayProvider({
           let examined=0, invalid=0, normalizedCount=0;
           const headers={Authorization:'Bearer '+authorization,'X-EBAY-C-MARKETPLACE-ID':'EBAY_US','Accept-Language':'en-US'};
           /**
-           * Structured eBay evidence for a confirmed shoe size, only when the searches didn't already
-           * support a price: each multi-size listing's own variation in that size (its own price and
-           * "US Shoe Size"), and eBay's item specifics for close matches whose titles don't state the size.
-           * Bounded call counts; nothing is assumed when eBay doesn't state a value.
+           * Structured eBay evidence for a confirmed shoe size: each multi-size listing's own variation in
+           * that size (its own price, "US Shoe Size" and stock), and eBay's item specifics (size, style
+           * code) for close matches whose titles don't state them. Always runs for a confirmed style code;
+           * otherwise only when the searches didn't already support a price. Bounded call counts; nothing
+           * is assumed when eBay doesn't state a value.
            */
           async function enrich(){
-            const out={groupsChecked:0,variationsFound:0,detailsChecked:0,detailsWithSize:0,skipped:undefined as string|undefined};
+            const out={groupsChecked:0,variationsFound:0,variationsOutOfStock:0,detailsChecked:0,detailsWithSize:0,detailsWithStyleCode:0,skipped:undefined as string|undefined};
             const wanted=query.details.size.trim();
-            if(!sized||!wanted){out.skipped='No confirmed US men\'s or women\'s shoe size.';return out;}
+            if(!sized.length||!wanted){out.skipped='No confirmed US men\'s or women\'s shoe size.';return out;}
             const snapshot=():MarketplaceResult=>({provider:"ebay",environment,status:"available",query:text,comparables,retrievedAt:stamp,expiresAt:new Date(now()+300000).toISOString(),cached:false,examined,excluded:0,invalid,warnings:[]});
-            if(sufficientSearchEvidence(snapshot(),query)){out.skipped='The searches already support a price.';return out;}
+            if(!styleCode&&sufficientSearchEvidence(snapshot(),query)){out.skipped='The searches already support a price.';return out;}
             const relaxed:ProductQuery={...query,details:{...query.details,size:'',sizeSystem:''}};
-            // Everything but the size checks out (product, colors, condition, box, sizing group not contradicted).
-            const otherwiseEligible=(c:Comparable)=>{const m=tierComparable({...c,matchReasons:[],quality:undefined},relaxed);return !!m.item&&m.item.matchTier!=='related'&&m.item.priceEligible===true;};
-            const budget=()=>{requests=requests.filter(t=>t>now()-3600000);return requests.length<90&&cooldownUntil<=now();};
-            const byQuality=(a:Comparable,b:Comparable)=>(b.quality?.score??0)-(a.quality?.score??0)||a.id.localeCompare(b.id);
+            // Would this listing qualify if eBay confirms its size (and the confirmed style code)? Product,
+            // colors, condition, box and sizing group must already check out; nothing here is assumed for pricing.
+            const otherwiseEligible=(c:Comparable,source:'ebay-item-group'|'ebay-item-details')=>{
+              const hypothetical={...c,matchReasons:[],quality:undefined,aspects:{...(c.aspects||{}),source,...(styleCode?{styleCode}:{})}};
+              const m=tierComparable(hypothetical,relaxed);return !!m.item&&m.item.matchTier!=='related'&&m.item.priceEligible===true;};
+            // A title that states a different full style code (DD1391-600) can't be the confirmed release.
+            const otherCode=(c:Comparable)=>!!styleCode&&styleCodesIn(c.title).some(x=>x.includes('-')&&x!==styleCode);
+            const codeInTitle=(c:Comparable)=>!!styleCode&&new RegExp('\\b'+styleCode.replace('-','[- ]?')+'\\b','i').test(c.title);
+            // Leave headroom in the hourly allowance for other sellers' searches.
+            const budget=()=>{requests=requests.filter(t=>t>now()-3600000);return requests.length<Math.floor(limits.hourlyRequests*0.9)&&cooldownUntil<=now();};
+            // Listings that state the confirmed code first, then the strongest title evidence.
+            const byQuality=(a:Comparable,b:Comparable)=>Number(codeInTitle(b))-Number(codeInTitle(a))||(b.quality?.score??0)-(a.quality?.score??0)||a.id.localeCompare(b.id);
             const setRow=(id:string,title:string,stage:string,reason:string)=>{const row=rowDiagnostics.find(r=>r.id===id&&r.stage!=='deduplication');if(row){row.stage=stage;row.reason=reason;}else rowDiagnostics.push({id,title,stage,reason});};
-            const groups=comparables.filter(c=>c.itemGroupId&&otherwiseEligible({...sources.get(c.id)!,warnings:[],aspects:{source:'ebay-item-group'}})).sort(byQuality).slice(0,6);
+            const groups=comparables.filter(c=>c.itemGroupId&&!otherCode(c)&&otherwiseEligible({...sources.get(c.id)!,warnings:[]},'ebay-item-group')).sort(byQuality).slice(0,limits.variationChecks);
             for(const group of groups){
               if(!budget()){searchWarnings.push('eBay item-specific checks stopped early to stay within the request budget.');break;}
               requests.push(now());out.groupsChecked++;
@@ -442,6 +477,9 @@ export function createEbayProvider({
                 if(!object(raw))continue;
                 const aspects=ebayAspects(raw.localizedAspects,'ebay-item-group');
                 if(!aspects?.size||Number(aspects.size)!==Number(wanted))continue;
+                // A size the seller lists but has sold out of isn't an asking price anyone can buy at.
+                const availability=Array.isArray(raw.estimatedAvailabilities)&&object(raw.estimatedAvailabilities[0])?raw.estimatedAvailabilities[0].estimatedAvailabilityStatus:null;
+                if(availability==='OUT_OF_STOCK'){out.variationsOutOfStock++;continue;}
                 const {itemGroupHref:_h,itemGroupType:_t,...row}=raw;
                 const [variation]=normalizeEbaySearch({total:1,itemSummaries:[row]},environment,stamp).items;
                 if(!variation||seen.has(variation.id))continue;
@@ -453,19 +491,23 @@ export function createEbayProvider({
                 if(match.item){comparables.push({...match.item,quality:scoreComparable(match.item)});out.variationsFound++;}
               }
             }
-            const unstated=new Set(['size_unverified','sizing_group_unverified','sizing_system_unverified','size_or_sizing_group_unverified']);
-            const details=comparables.filter(c=>!c.itemGroupId&&!c.aspects&&c.matchTier!=='related'&&!c.priceEligible&&
-              unstated.has(tierComparable({...sources.get(c.id)!},query).reason)&&otherwiseEligible(sources.get(c.id)!)).sort(byQuality).slice(0,10);
+            const unstated=new Set(['size_unverified','sizing_group_unverified','sizing_system_unverified','size_or_sizing_group_unverified',...(styleCode?['identifier_mismatch']:[])]);
+            const details=comparables.filter(c=>!c.itemGroupId&&!otherCode(c)&&c.aspects?.source!=='ebay-item-details'&&c.aspects?.source!=='ebay-item-group'&&c.matchTier!=='related'&&!c.priceEligible&&
+              unstated.has(tierComparable({...sources.get(c.id)!},query).reason)&&otherwiseEligible(sources.get(c.id)!,'ebay-item-details')).sort(byQuality).slice(0,limits.detailChecks);
             for(const c of details){
               if(!budget()){searchWarnings.push('eBay item-specific checks stopped early to stay within the request budget.');break;}
               requests.push(now());out.detailsChecked++;
               let body:unknown;
               try{body=await upstream(base+'/buy/browse/v1/item/'+encodeURIComponent(c.id),{headers});}
               catch(error){if(error instanceof EbayError&&error.retryAfterSeconds)break;continue;}
-              const aspects=object(body)?ebayAspects(body.localizedAspects,'ebay-item-details'):null;
-              if(!aspects)continue;
-              if(aspects.size)out.detailsWithSize++;
-              const source={...sources.get(c.id)!,aspects};
+              const fetched=object(body)?ebayAspects(body.localizedAspects,'ebay-item-details'):null;
+              if(!fetched)continue;
+              if(fetched.size)out.detailsWithSize++;
+              if(fetched.styleCode)out.detailsWithStyleCode++;
+              // Keep what the size filter established; eBay's item specifics add to or replace it.
+              const prior=sources.get(c.id)!;
+              const aspects={...(prior.aspects||{}),...Object.fromEntries(Object.entries(fetched).filter(([,v])=>v!==undefined))} as typeof fetched;
+              const source={...prior,aspects};
               sources.set(c.id,source);
               const match=tierComparable(source,query);
               const index=comparables.findIndex(x=>x.id===c.id);
@@ -478,21 +520,30 @@ export function createEbayProvider({
           const searchWarnings:string[]=[];
           // Source facts for each listing, so structured eBay evidence can re-check it from scratch.
           const sources = new Map<string, Comparable>();
-          const sized = sizedSearch(query);
-          type Step = { stage: string; query: string; categoryId?: string; aspectFilter?: string; conditionIds?: string };
-          const steps: Step[] = [...(sized ? [sized] : []), ...plan];
+          const sized = sizedSearches(query);
+          const styleCode = sized[0]?.styleCode ?? null;
+          type Step = { stage: string; query: string; categoryId?: string; aspectFilter?: string; conditionIds?: string; limit?: number; offset?: number; sizedStep?: (typeof sized)[number] };
+          const steps: Step[] = [...sized.map((s) => ({ ...s, sizedStep: s })), ...plan];
+          let codeListings = 0, lastReturned = 0;
+          const coverage = { reportedTotal: null as number | null, read: 0, exhausted: false, query: "" };
           for (const step of steps) {
-            if(attempts.length&&sufficientSearchEvidence({provider:"ebay",environment,status:"available",query:text,comparables,retrievedAt:stamp,expiresAt:new Date(now()+300000).toISOString(),cached:false,examined,excluded:0,invalid,warnings:[]},query))break;
+            // Style-code pages always run together; page 2 only when page 1 was full.
+            if(step.sizedStep?.styleCode&&step.sizedStep.offset>0&&(lastReturned<step.sizedStep.limit||step.sizedStep.offset/step.sizedStep.limit>=limits.pages))continue;
+            // Enough style-code listings make the broader title searches unnecessary.
+            if(!step.sizedStep&&styleCode&&codeListings>=50){searchWarnings.push('Title searches skipped: the style-code search returned enough listings.');break;}
+            if(!step.sizedStep?.styleCode&&attempts.length&&sufficientSearchEvidence({provider:"ebay",environment,status:"available",query:text,comparables,retrievedAt:stamp,expiresAt:new Date(now()+300000).toISOString(),cached:false,examined,excluded:0,invalid,warnings:[]},query))break;
             requests = requests.filter(t=>t>now()-3600000);
-            if(requests.length>=100 || cooldownUntil>now()) {searchWarnings.push('Search budget or rate-limit cooldown stopped further stages.');break;}
+            if(requests.length>=limits.hourlyRequests || cooldownUntil>now()) {searchWarnings.push('Search budget or rate-limit cooldown stopped further stages.');break;}
             requests.push(now());
             const attemptStart=now();
             const stepFilter=filter+(step.conditionIds?',conditionIds:{'+step.conditionIds+'}':'');
-            const attempt={stage:step.stage,query:step.query,filter:stepFilter+(step.aspectFilter?' · category '+step.categoryId+' · '+step.aspectFilter:''),limit:100,returned:0,unique:0,duplicates:0,candidates:0,latencyMs:0,error:undefined as string|undefined};
+            const limit=step.limit??100,offset=step.offset??0;
+            const attempt={stage:step.stage,query:step.query,filter:stepFilter+(step.aspectFilter?' · category '+step.categoryId+' · '+step.aspectFilter:'')+(offset?' · offset '+offset:''),limit,returned:0,unique:0,duplicates:0,candidates:0,latencyMs:0,error:undefined as string|undefined};
             attempts.push(attempt);
             let normalized: ReturnType<typeof normalizeEbaySearch>;
             try {
-              const params=new URLSearchParams({q:step.query,limit:'100',filter:stepFilter});
+              const params=new URLSearchParams({q:step.query,limit:String(limit),filter:stepFilter});
+              if(offset)params.set('offset',String(offset));
               if(step.categoryId)params.set('category_ids',step.categoryId);
               if(step.aspectFilter)params.set('aspect_filter',step.aspectFilter);
               const raw=await upstream(base+'/buy/browse/v1/item_summary/search?'+params,{headers:{Authorization:'Bearer '+authorization,'X-EBAY-C-MARKETPLACE-ID':'EBAY_US','Accept-Language':'en-US'}});
@@ -502,7 +553,16 @@ export function createEbayProvider({
               attempt.latencyMs=now()-attemptStart;
               attempt.error=error instanceof EbayError?error.message:'Search stage failed';searchWarnings.push("Partial marketplace search: "+attempt.error);break;
             }
-            attempt.returned=normalized.examined;
+            attempt.returned=normalized.examined;lastReturned=normalized.examined;
+            // The main search is the size-filtered one when there is one, otherwise the first title search.
+            if(step.sizedStep||(!sized.length&&attempts.length===1)){
+              if(!coverage.query)coverage.query=step.query;
+              if(coverage.query===step.query){
+                if(normalized.total!==null)coverage.reportedTotal=Math.max(coverage.reportedTotal??0,normalized.total);
+                coverage.read+=normalized.examined;
+                coverage.exhausted=normalized.examined<limit||(normalized.total!==null&&offset+normalized.examined>=normalized.total);
+              }
+            }
             attempt.duplicates=normalized.exclusions.duplicate_item||0;
             examined+=normalized.examined;invalid+=normalized.invalid;normalizedCount+=normalized.items.length;
             rowDiagnostics.push(...normalized.diagnostics);
@@ -510,15 +570,15 @@ export function createEbayProvider({
             for(const listed of normalized.items){
               // eBay matched this single-size listing on its own "US Shoe Size" item specific in the
               // men's/women's category. Multi-size listings matched on one of their sizes stay unverified.
-              const item: Comparable = sized && step.stage===sized.stage && !listed.itemGroupId
-                ? {...listed, aspects:{source:'ebay-size-filter', size:sized.size, sizeSystem:'US', department:sized.department}}
+              const item: Comparable = step.sizedStep && !listed.itemGroupId
+                ? {...listed, aspects:{source:'ebay-size-filter', size:step.sizedStep.size, sizeSystem:'US', department:step.sizedStep.department}}
                 : listed;
               if(seen.has(item.id)){
                 const prior=comparables.find(x=>x.id===item.id);
                 if(prior&&(prior.price!==item.price||prior.conditionId!==item.conditionId||item.warnings.includes("Conflicting duplicate listing")))
                   prior.warnings.push("Conflicting duplicate listing");
                 attempt.duplicates++;invalid++;normalizedCount--;exclusionCounts.duplicate_across_searches=(exclusionCounts.duplicate_across_searches||0)+1;rowDiagnostics.push({id:item.id,title:item.title,stage:'deduplication',reason:'duplicate_across_searches'});continue;}
-              seen.add(item.id);attempt.unique++;
+              seen.add(item.id);attempt.unique++;if(step.sizedStep?.styleCode)codeListings++;
               sources.set(item.id,item);
               const match=completeComparable(item,query)?tierComparable(item,query):{item:null,reason:"incompatible_or_incomplete_footwear"};
               rowDiagnostics.push({id:item.id,title:item.title,stage:match.item ? match.item.matchTier+(match.item.priceEligible?' (candidate)':' (pricing excluded)') : 'matching',reason:match.reason});
@@ -538,13 +598,13 @@ export function createEbayProvider({
             expiresAt: new Date(now() + 300000).toISOString(),
             cached: false,
             diagnostics: { normalized: normalizedCount, accepted: comparables.length, exclusions: exclusionCounts, rows: rowDiagnostics },
-            searchDiagnostics: { cacheKey:key, attempts, enrichment, exact:comparables.filter(x=>x.matchTier==="exact").length,close:comparables.filter(x=>x.matchTier==="close").length,related:comparables.filter(x=>x.matchTier==="related").length },
+            searchDiagnostics: { cacheKey:key, attempts, enrichment, coverage, exact:comparables.filter(x=>x.matchTier==="exact").length,close:comparables.filter(x=>x.matchTier==="close").length,related:comparables.filter(x=>x.matchTier==="related").length },
             examined,
             excluded: normalizedCount - comparables.length,
             invalid,
             warnings: [
               ...searchWarnings,
-              "Limited sample: up to five searches of the first 100 best-match fixed-price listings, USD, deliverable to the US, plus a few eBay item-specific checks. Item prices exclude shipping and tax. Title-based matching may miss valid listings or accept imperfect matches.",
+              "Limited sample: up to six searches of 100–200 best-match fixed-price listings each, USD, deliverable to the US, plus up to 20 eBay item-specific checks. Item prices exclude shipping and tax. Title-based matching may miss valid listings or accept imperfect matches.",
               ...(environment === "sandbox"
                 ? ["Sandbox listings are test data, not market evidence."]
                 : []),

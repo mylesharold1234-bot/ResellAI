@@ -87,7 +87,12 @@ export type MarketplaceResult = {
   retrievalDiagnostics?: {uniqueListings:number;duplicateRows:number;duplicateRate:number|null;pricingCandidates:number;cohortCount:number;bottleneck:"none"|"retrieval-error"|"no-results"|"matching"|"pricing-cohort";latencyMs:number;requests:number};
   searchDiagnostics?: {cacheKey: string; attempts: {stage: string; query: string; filter: string; limit: number; returned: number; unique?:number; duplicates?:number; candidates?:number; latencyMs?:number; error?: string}[]; exact: number; close: number; related: number;
     /** Structured eBay checks: per-size variations of multi-size listings, and item specifics for close matches. */
-    enrichment?: {groupsChecked:number; variationsFound:number; detailsChecked:number; detailsWithSize:number; skipped?:string}};
+    enrichment?: {groupsChecked:number; variationsFound:number; variationsOutOfStock?:number; detailsChecked:number; detailsWithSize:number; detailsWithStyleCode?:number; skipped?:string};
+    /**
+     * How much of the market the main search covered: eBay's own count of matching listings, how many of
+     * those were read (in eBay's Best Match order) and whether the last page was reached.
+     */
+    coverage?: {reportedTotal:number|null; read:number; exhausted:boolean; query:string}};
   retryAfterSeconds?: number;
   creditsUsed?: number | null;
 };

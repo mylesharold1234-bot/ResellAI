@@ -386,3 +386,21 @@
 .tier-empty { font-size: 14px; color: var(--text-2); margin: 0 }
 .tier-more { justify-self: start; font-size: 13px }
 .tier .market-ref { margin-top: 0 }
+
+/* Sneaker style code, beside size and condition */
+.style-code-field { display: grid; gap: 6px }
+.style-code-field label { font-size: 14px; font-weight: 500 }
+.style-code-field input { font-variant-numeric: tabular-nums; letter-spacing: .02em; text-transform: uppercase }
+.style-code-field input::placeholder { text-transform: none }
+.style-code-field input[aria-invalid=true] { border-color: var(--danger) }
+.style-code-field .fine { margin: 0 }
+
+/* Verified asking-price spread, when no single price is defensible */
+.ask-dist { margin-top: 10px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--subtle); display: grid; gap: 6px }
+.ask-dist-mid { font-size: 15px; font-weight: 550; font-variant-numeric: tabular-nums; margin: 0 }
+.ask-dist-mid .muted { font-weight: 400 }
+.ask-dist-bar { position: relative; height: 8px; border-radius: 999px; background: var(--subtle-2); margin: 4px 0 }
+.ask-dist-iqr { position: absolute; top: 0; bottom: 0; border-radius: 999px; background: var(--text-3) }
+.ask-dist-median { position: absolute; top: -3px; width: 2px; height: 14px; background: var(--text); transform: translateX(-1px) }
+.ask-dist-ends { display: flex; justify-content: space-between; margin: 0; font-variant-numeric: tabular-nums }
+.ask-dist .fine { margin: 0 }

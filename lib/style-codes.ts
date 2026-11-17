@@ -54,3 +54,18 @@ export function styleEdition(text: string, product: string): string | null {
   );
   return editions.size === 1 ? [...editions][0] : null;
 }
+
+/**
+ * A Nike/Jordan-format style code ("DD1391-100", "dd1391 100") in canonical form, or null. This is the
+ * format eBay and Mercari sellers print in titles and item specifics, so it's safe to search on.
+ */
+export function canonicalStyleCode(text: string | null | undefined): string | null {
+  const m = /^\s*([A-Za-z]{2}\d{4})[-\s]?(\d{3})\s*$/.exec(text || "");
+  return m ? `${m[1].toUpperCase()}-${m[2]}` : null;
+}
+
+/** The single full style code legible in free text (e.g. the photo's transcribed label), or null. */
+export function styleCodeFromText(text: string | null | undefined): string | null {
+  const full = styleCodesIn(text || "").filter((c) => c.includes("-"));
+  return full.length === 1 ? full[0] : null;
+}

@@ -35,3 +35,5 @@ Not the cause: duplicate filtering, outlier filtering (no outliers at n=7), snap
 Including the size in the Mercari query when a size is confirmed might retrieve more size-specific listings. That's unverified without one or two paid API.SH calls, so retrieval was left unchanged.
 
 Today's cached snapshot still holds the old matching. Running the analysis tomorrow, or refreshing, applies the fix.
+
+**Update 2026-11-17:** the $79.31 came from 5 "New" listings without "Retro" in the title standing in for the larger "New Retro" group of the same shoe ($36–$122). That fallback is now treated as a bug, so this snapshot gives no single price and shows the asking-price spread instead. See docs/SNEAKER-STYLE-CODE-DEPTH.md.
